@@ -95,11 +95,32 @@ export function toMarkdown(m: Manuscript): string {
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n'
 }
 
-function escapeHtml(s: string): string {
+export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function blockHtml(b: Block): string {
+export function wrapHtmlDocument(title: string, body: string): string {
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+<style>
+body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5; }
+h1 { font-size: 14pt; text-align: center; }
+h2 { font-size: 12pt; text-transform: uppercase; margin-top: 18pt; }
+h3 { font-size: 12pt; font-style: italic; }
+p { margin: 0 0 6pt; text-align: justify; }
+</style>
+</head>
+<body>
+${body}
+</body>
+</html>
+`
+}
+
+export function blockHtml(b: Block): string {
   return lines(b.text)
     .map((l, i) => `<p>${i === 0 && b.label ? `<b>${escapeHtml(b.label)}:</b> ` : ''}${escapeHtml(l)}</p>`)
     .join('\n')
@@ -115,22 +136,5 @@ export function toHtmlDocument(m: Manuscript): string {
       body.push(blockHtml(b))
     }
   }
-  return `<!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<title>${escapeHtml(m.title || 'Manuscrito')}</title>
-<style>
-body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5; }
-h1 { font-size: 14pt; text-align: center; }
-h2 { font-size: 12pt; text-transform: uppercase; margin-top: 18pt; }
-h3 { font-size: 12pt; font-style: italic; }
-p { margin: 0 0 6pt; text-align: justify; }
-</style>
-</head>
-<body>
-${body.join('\n')}
-</body>
-</html>
-`
+  return wrapHtmlDocument(m.title || 'Manuscrito', body.join('\n'))
 }

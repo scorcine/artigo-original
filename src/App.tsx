@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { STUDY_TYPES, getStudyType } from './data/studyTypes'
-import { STEPS, getStepFields, isFilled, stepProgress } from './data/steps'
-import type { Field, StudyType } from './data/types'
+import { PHASE_TITLES, STEPS, missingFields, stepProgress, visibleFields } from './data/steps'
+import type { Field, Phase, StepId, StudyType, Values } from './data/types'
 import { buildManuscript, countWords, lines, toHtmlDocument, toMarkdown } from './lib/manuscript'
+import { SOURCES, buildProject, buildTcle } from './lib/phase1'
 import { emptyDraft, loadDraft, saveDraft, type Draft } from './lib/storage'
+
+const PHASES: Phase[] = [0, 1, 2]
 
 export default function App() {
   const [draft, setDraft] = useState<Draft>(loadDraft)
@@ -13,11 +16,13 @@ export default function App() {
   }, [draft])
 
   const type = getStudyType(draft.typeId)
-  const stepIndex = type ? Math.min(Math.max(draft.stepIndex, 0), STEPS.length - 1) : 0
+  const found = STEPS.findIndex((s) => s.id === draft.stepId)
+  const stepIndex = type && found >= 0 ? found : 0
   const step = STEPS[stepIndex]
+  const phaseSteps = STEPS.filter((s) => s.phase === step.phase)
 
-  const goTo = (index: number) => {
-    setDraft((d) => ({ ...d, stepIndex: index }))
+  const goTo = (id: StepId) => {
+    setDraft((d) => ({ ...d, stepId: id }))
     window.scrollTo({ top: 0 })
   }
 
@@ -27,57 +32,88 @@ export default function App() {
   const chooseType = (typeId: string) => setDraft((d) => ({ ...d, typeId }))
 
   const reset = () => {
-    if (window.confirm('Apagar o rascunho atual e começar um novo artigo? Esta ação não pode ser desfeita.')) {
+    if (window.confirm('Apagar o rascunho atual (Fase 1 e Fase 2) e começar de novo? Esta ação não pode ser desfeita.')) {
       setDraft(emptyDraft())
     }
   }
+
+  const next = STEPS[stepIndex + 1]
+  const nextLabel = next && next.phase !== step.phase && step.phase !== 0 ? `Ir para a ${PHASE_TITLES[next.phase].split(' · ')[0]}` : 'Avançar'
 
   return (
     <div className="app">
       <header className="topbar">
         <div>
           <h1>Artigo Original</h1>
-          <p>Construa seu artigo científico passo a passo. O rascunho fica salvo apenas neste navegador.</p>
+          <p>Do Comitê de Ética ao manuscrito, passo a passo. O rascunho fica salvo apenas neste navegador.</p>
         </div>
         {type && <span className="type-badge">{type.name}</span>}
       </header>
 
       <div className="layout">
-        <nav className="steps" aria-label="Etapas do artigo">
-          <ol>
-            {STEPS.map((s, i) => {
-              const { done, total } = stepProgress(s.id, type, draft.values)
-              const disabled = !type && i > 0
-              return (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    className={i === stepIndex ? 'active' : ''}
-                    disabled={disabled}
-                    onClick={() => goTo(i)}
-                  >
-                    <span className="step-number">{i + 1}</span>
-                    <span className="step-title">{s.title}</span>
-                    {total > 0 && (
-                      <span className={`step-count${done === total ? ' complete' : ''}`}>
-                        {done}/{total}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              )
-            })}
-          </ol>
+        <nav className="steps" aria-label="Etapas">
+          {PHASES.map((phase) => (
+            <div key={phase} className="phase-group">
+              {phase !== 0 && <p className="phase-title">{PHASE_TITLES[phase]}</p>}
+              <ol>
+                {STEPS.filter((s) => s.phase === phase).map((s) => {
+                  const { done, total } = stepProgress(s.id, type, draft.values)
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        className={s.id === step.id ? 'active' : ''}
+                        disabled={!type && s.id !== 'tipo'}
+                        onClick={() => goTo(s.id)}
+                      >
+                        <span className={`step-dot${total > 0 && done === total ? ' complete' : ''}`} />
+                        <span className="step-title">{s.title}</span>
+                        {total > 0 && (
+                          <span className={`step-count${done === total ? ' complete' : ''}`}>
+                            {done}/{total}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ol>
+            </div>
+          ))}
         </nav>
 
         <main className="content">
           <p className="step-kicker">
-            Etapa {stepIndex + 1} de {STEPS.length}
+            {step.phase === 0
+              ? 'Comece por aqui'
+              : `${PHASE_TITLES[step.phase]} · Etapa ${phaseSteps.indexOf(step) + 1} de ${phaseSteps.length}`}
           </p>
           <h2>{step.title}</h2>
           <p className="step-intro">{step.intro}</p>
 
-          {step.id === 'tipo' && <TypePicker selected={draft.typeId} onChoose={chooseType} />}
+          {step.id === 'tipo' && (
+            <>
+              <div className="notice">
+                O trabalho tem duas fases. Na <strong>Fase 1</strong> você prepara o cadastro e a submissão do projeto na
+                Plataforma Brasil, para aprovação do Comitê de Ética. Na <strong>Fase 2</strong> você escreve o artigo, e o
+                que já foi escrito na Fase 1 pode ser reaproveitado.
+              </div>
+              <TypePicker selected={draft.typeId} onChoose={chooseType} />
+            </>
+          )}
+
+          {step.phase === 1 && type?.ethicsNote && <div className="notice warning">{type.ethicsNote}</div>}
+
+          {step.id === 'pb_cadastro' && (
+            <div className="notice">
+              O cadastro é feito no site da{' '}
+              <a href="https://plataformabrasil.saude.gov.br/" target="_blank" rel="noreferrer">
+                Plataforma Brasil
+              </a>
+              . Depois de entrar, o projeto é cadastrado em "Nova submissão"; as próximas etapas seguem a ordem das telas
+              da plataforma.
+            </div>
+          )}
 
           {step.id === 'metodos' && type && (
             <div className="notice">
@@ -90,23 +126,37 @@ export default function App() {
             </div>
           )}
 
+          {step.id === 'pb_tcle' && draft.values.pb_dispensa_tcle === 'Sim' && (
+            <div className="notice">
+              Você indicou que vai pedir a dispensa do TCLE, então não é preciso escrever o termo. A justificativa da
+              dispensa fica na etapa "Outras informações".
+            </div>
+          )}
+
           {step.id !== 'tipo' && step.id !== 'revisao' && (
             <div className="fields">
-              {getStepFields(step.id, type).map((field) => (
-                <FieldInput key={field.id} field={field} value={draft.values[field.id] ?? ''} onChange={setValue} />
+              {visibleFields(step.id, type, draft.values).map((field) => (
+                <FieldInput key={field.id} field={field} values={draft.values} onChange={setValue} />
               ))}
             </div>
           )}
 
+          {step.id === 'pb_envio' && <Phase1Review type={type} values={draft.values} onGoTo={goTo} />}
+
           {step.id === 'revisao' && <Review type={type} values={draft.values} onGoTo={goTo} onReset={reset} />}
 
           <div className="pager">
-            <button type="button" className="secondary" disabled={stepIndex === 0} onClick={() => goTo(stepIndex - 1)}>
+            <button
+              type="button"
+              className="secondary"
+              disabled={stepIndex === 0}
+              onClick={() => goTo(STEPS[stepIndex - 1].id)}
+            >
               Voltar
             </button>
-            {stepIndex < STEPS.length - 1 && (
-              <button type="button" disabled={!type} onClick={() => goTo(stepIndex + 1)}>
-                Avançar
+            {next && (
+              <button type="button" disabled={!type} onClick={() => goTo(next.id)}>
+                {nextLabel}
               </button>
             )}
           </div>
@@ -139,17 +189,42 @@ function TypePicker({ selected, onChoose }: { selected: string | null; onChoose:
 
 function FieldInput({
   field,
-  value,
+  values,
   onChange,
 }: {
   field: Field
-  value: string
+  values: Values
   onChange: (id: string, value: string) => void
 }) {
   const inputId = `campo-${field.id}`
+  const value = values[field.id] ?? ''
+  const source = SOURCES[field.id]
+  const sourceText = source?.get(values) ?? ''
+  const canImport = sourceText !== '' && sourceText !== value.trim()
+
+  if (field.kind === 'check') {
+    return (
+      <label className="field check-field" htmlFor={inputId}>
+        <input
+          id={inputId}
+          type="checkbox"
+          checked={value === 'sim'}
+          onChange={(e) => onChange(field.id, e.target.checked ? 'sim' : '')}
+        />
+        <span>
+          <span className="check-label">
+            {field.label}
+            {field.optional && <span className="optional">opcional</span>}
+          </span>
+          {field.help && <span className="help">{field.help}</span>}
+        </span>
+      </label>
+    )
+  }
+
   return (
     <div className="field">
-      <label htmlFor={inputId}>
+      <label htmlFor={field.kind === 'choice' ? undefined : inputId} id={`${inputId}-label`}>
         {field.label}
         {field.optional && <span className="optional">opcional</span>}
       </label>
@@ -160,21 +235,42 @@ function FieldInput({
           <p>{field.example}</p>
         </details>
       )}
-      {field.singleLine ? (
+      {canImport && (
+        <button
+          type="button"
+          className="import"
+          onClick={() => {
+            if (!value.trim() || window.confirm('Substituir o texto atual por este?')) onChange(field.id, sourceText)
+          }}
+        >
+          Trazer de: {source.from}
+        </button>
+      )}
+      {field.kind === 'choice' ? (
+        <div className="choices" role="radiogroup" aria-labelledby={`${inputId}-label`}>
+          {field.options?.map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={value === option}
+              className={`choice${value === option ? ' selected' : ''}`}
+              onClick={() => onChange(field.id, option)}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      ) : field.kind === 'text' ? (
         <input id={inputId} type="text" value={value} onChange={(e) => onChange(field.id, e.target.value)} />
       ) : (
-        <textarea
-          id={inputId}
-          rows={field.rows ?? 4}
-          value={value}
-          onChange={(e) => onChange(field.id, e.target.value)}
-        />
+        <textarea id={inputId} rows={field.rows ?? 4} value={value} onChange={(e) => onChange(field.id, e.target.value)} />
       )}
     </div>
   )
 }
 
-function slugify(text: string): string {
+function slugify(text: string, fallback: string): string {
   const slug = text
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -182,7 +278,7 @@ function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 60)
-  return slug || 'artigo-original'
+  return slug || fallback
 }
 
 function download(filename: string, content: string, mime: string) {
@@ -194,6 +290,86 @@ function download(filename: string, content: string, mime: string) {
   URL.revokeObjectURL(url)
 }
 
+function MissingList({
+  phase,
+  type,
+  values,
+  onGoTo,
+  doneMessage,
+}: {
+  phase: Phase
+  type: StudyType | null
+  values: Values
+  onGoTo: (id: StepId) => void
+  doneMessage: string
+}) {
+  const missing = STEPS.filter((s) => s.phase === phase)
+    .map((s) => ({ step: s, fields: missingFields(s.id, type, values) }))
+    .filter((m) => m.fields.length > 0)
+
+  if (missing.length === 0) return <div className="notice success">{doneMessage}</div>
+
+  return (
+    <div className="missing">
+      <h3>Ainda falta preencher</h3>
+      <ul>
+        {missing.map((m) => (
+          <li key={m.step.id}>
+            <button type="button" className="link" onClick={() => onGoTo(m.step.id)}>
+              {m.step.title}
+            </button>
+            : {m.fields.map((f) => f.label).join(', ')}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function Phase1Review({
+  type,
+  values,
+  onGoTo,
+}: {
+  type: StudyType | null
+  values: Values
+  onGoTo: (id: StepId) => void
+}) {
+  const project = buildProject(type, values)
+  const name = slugify(project.title, 'projeto')
+
+  return (
+    <div className="review phase-review">
+      <h3>Revisão da Fase 1</h3>
+      <MissingList
+        phase={1}
+        type={type}
+        values={values}
+        onGoTo={onGoTo}
+        doneMessage="Tudo pronto para a submissão. Depois de enviar, anote acima o CAAE e, quando sair, o parecer."
+      />
+      <div className="actions">
+        <button type="button" onClick={() => download(`projeto-${name}.doc`, project.html, 'application/msword')}>
+          Baixar projeto detalhado (.doc)
+        </button>
+        {values.pb_dispensa_tcle !== 'Sim' && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => download(`tcle-${name}.doc`, buildTcle(values), 'application/msword')}
+          >
+            Baixar TCLE (.doc)
+          </button>
+        )}
+      </div>
+      <p className="help">
+        Os arquivos abrem no Word. Revise, ajuste ao modelo exigido pelo seu CEP, salve em PDF e anexe na plataforma.
+        Trechos entre colchetes, como [preencher: ...], indicam o que ainda falta.
+      </p>
+    </div>
+  )
+}
+
 function Review({
   type,
   values,
@@ -201,20 +377,14 @@ function Review({
   onReset,
 }: {
   type: StudyType | null
-  values: Record<string, string>
-  onGoTo: (index: number) => void
+  values: Values
+  onGoTo: (id: StepId) => void
   onReset: () => void
 }) {
   const [copied, setCopied] = useState(false)
   const manuscript = useMemo(() => buildManuscript(type, values), [type, values])
   const words = countWords(manuscript)
-  const name = slugify(manuscript.title)
-
-  const missing = STEPS.map((s, index) => ({
-    step: s,
-    index,
-    fields: getStepFields(s.id, type).filter((f) => !f.optional && !isFilled(values, f.id)),
-  })).filter((m) => m.fields.length > 0)
+  const name = slugify(manuscript.title, 'artigo-original')
 
   const copy = async () => {
     await navigator.clipboard.writeText(toMarkdown(manuscript))
@@ -228,41 +398,33 @@ function Review({
         <span>
           <strong>{words.toLocaleString('pt-BR')}</strong> palavras
         </span>
-        {type?.wordLimit && (
-          <span className={words > type.wordLimit.max ? 'over' : ''}>{type.wordLimit.note}</span>
-        )}
+        {type?.wordLimit && <span className={words > type.wordLimit.max ? 'over' : ''}>{type.wordLimit.note}</span>}
       </div>
 
-      {missing.length > 0 ? (
-        <div className="missing">
-          <h3>Ainda falta preencher</h3>
-          <ul>
-            {missing.map((m) => (
-              <li key={m.step.id}>
-                <button type="button" className="link" onClick={() => onGoTo(m.index)}>
-                  {m.step.title}
-                </button>
-                : {m.fields.map((f) => f.label).join(', ')}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <div className="notice success">Todas as partes obrigatórias estão preenchidas.</div>
-      )}
+      <MissingList
+        phase={2}
+        type={type}
+        values={values}
+        onGoTo={onGoTo}
+        doneMessage="Todas as partes obrigatórias do artigo estão preenchidas."
+      />
 
       <div className="actions">
         <button type="button" onClick={() => download(`${name}.doc`, toHtmlDocument(manuscript), 'application/msword')}>
           Baixar para o Word (.doc)
         </button>
-        <button type="button" className="secondary" onClick={() => download(`${name}.md`, toMarkdown(manuscript), 'text/markdown')}>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => download(`${name}.md`, toMarkdown(manuscript), 'text/markdown')}
+        >
           Baixar texto (.md)
         </button>
         <button type="button" className="secondary" onClick={copy}>
           {copied ? 'Copiado' : 'Copiar texto'}
         </button>
         <button type="button" className="danger" onClick={onReset}>
-          Começar novo artigo
+          Começar de novo
         </button>
       </div>
 

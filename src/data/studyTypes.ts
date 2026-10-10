@@ -244,6 +244,8 @@ export const STUDY_TYPES: StudyType[] = [
     name: 'Qualitativo',
     description: 'Investiga experiências, percepções e significados a partir de falas, observações ou documentos.',
     guideline: 'SRQR ou COREQ',
+    ethicsNote:
+      'Pesquisas em Ciências Humanas e Sociais seguem também a Resolução CNS 510/2016, que admite outras formas de registro do consentimento além do termo escrito, como a gravação em áudio.',
     designHint: 'Informe que é um estudo qualitativo e a pergunta que orienta a investigação.',
     methods: [
       {
@@ -352,6 +354,8 @@ export const STUDY_TYPES: StudyType[] = [
     name: 'Pesquisa com animais',
     description: 'Estudos experimentais in vivo com animais de laboratório.',
     guideline: 'ARRIVE',
+    ethicsNote:
+      'Pesquisas com animais não são submetidas à Plataforma Brasil: elas são avaliadas pela Comissão de Ética no Uso de Animais (CEUA) da instituição. Você pode ir direto para a Fase 2.',
     designHint: 'Informe que é um estudo experimental com animais, a unidade experimental e a comparação principal.',
     methods: [
       {
@@ -422,6 +426,8 @@ export const STUDY_TYPES: StudyType[] = [
     name: 'Computacional / in silico',
     description: 'Modelos, simulações, algoritmos ou análises de grandes bases de dados.',
     guideline: 'TRIPOD para modelos preditivos; para os demais, boas práticas de reprodutibilidade',
+    ethicsNote:
+      'Estudos que usam apenas informações de acesso público ou bancos de dados agregados, sem possibilidade de identificar as pessoas, não são avaliados pelo sistema CEP/Conep (Resolução CNS 510/2016, art. 1º, parágrafo único). Se houver dados identificáveis, a submissão é necessária. Na dúvida, consulte o CEP da instituição.',
     designHint:
       'Informe o tipo de estudo (desenvolvimento de modelo, simulação, análise de dados secundários) e a pergunta computacional.',
     methods: [

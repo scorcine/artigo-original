@@ -1,71 +1,120 @@
-import type { Field, StudyType } from './types'
+import { PB_FIELDS } from './plataformaBrasil'
+import type { Field, Phase, Step, StepId, StudyType, Values } from './types'
 
-export type StepId =
-  | 'tipo'
-  | 'identificacao'
-  | 'resumo'
-  | 'introducao'
-  | 'metodos'
-  | 'resultados'
-  | 'discussao'
-  | 'conclusao'
-  | 'finais'
-  | 'revisao'
+export type { Step, StepId }
 
-export interface Step {
-  id: StepId
-  title: string
-  intro: string
+export const PHASE_TITLES: Record<Phase, string> = {
+  0: 'Início',
+  1: 'Fase 1 · Plataforma Brasil',
+  2: 'Fase 2 · Artigo original',
 }
 
 export const STEPS: Step[] = [
   {
     id: 'tipo',
+    phase: 0,
     title: 'Tipo de estudo',
-    intro: 'Escolha a variação do artigo original. Ela define o que será pedido nos Métodos e nos Resultados.',
+    intro: 'Escolha a variação do artigo original. Ela define o que será pedido na submissão ao Comitê de Ética e nos Métodos e Resultados do artigo.',
+  },
+  {
+    id: 'pb_cadastro',
+    phase: 1,
+    title: 'Cadastro do pesquisador',
+    intro: 'Antes de submeter o projeto, cada pesquisador precisa de cadastro na Plataforma Brasil. Separe os itens abaixo e marque o que já tiver.',
+  },
+  {
+    id: 'pb_preliminares',
+    phase: 1,
+    title: 'Informações preliminares',
+    intro: 'Quem conduz o estudo e em qual instituição. Corresponde à primeira tela do cadastro do projeto na plataforma.',
+  },
+  {
+    id: 'pb_area',
+    phase: 1,
+    title: 'Área de estudo',
+    intro: 'Títulos, área do conhecimento e se o projeto está em área temática especial.',
+  },
+  {
+    id: 'pb_desenho',
+    phase: 1,
+    title: 'Desenho e financiamento',
+    intro: 'O tipo de estudo e quem vai pagar as despesas.',
+  },
+  {
+    id: 'pb_detalhamento',
+    phase: 1,
+    title: 'Detalhamento do estudo',
+    intro: 'O núcleo do projeto. Cada campo corresponde a um campo da plataforma: escreva aqui e depois copie para lá.',
+  },
+  {
+    id: 'pb_outras',
+    phase: 1,
+    title: 'Outras informações',
+    intro: 'Uso de dados, consentimento, cronograma, orçamento e bibliografia.',
+  },
+  {
+    id: 'pb_tcle',
+    phase: 1,
+    title: 'TCLE',
+    intro: 'O Termo de Consentimento Livre e Esclarecido é o convite ao participante. Escreva em linguagem simples; o site monta o termo com os itens exigidos pela Resolução CNS 466/2012.',
+  },
+  {
+    id: 'pb_envio',
+    phase: 1,
+    title: 'Documentos e envio',
+    intro: 'Os anexos da submissão, o projeto e o TCLE prontos para baixar, e o registro da aprovação.',
   },
   {
     id: 'identificacao',
+    phase: 2,
     title: 'Título e autores',
     intro: 'A página de rosto: título, autores, afiliações e contato.',
   },
   {
     id: 'resumo',
+    phase: 2,
     title: 'Resumo',
     intro: 'Resumo estruturado. Muitos autores escrevem esta parte por último; você pode pular e voltar depois.',
   },
   {
     id: 'introducao',
+    phase: 2,
     title: 'Introdução',
     intro: 'Do geral para o específico: o que se sabe, o que falta saber e o que este estudo pretende responder.',
   },
   {
     id: 'metodos',
+    phase: 2,
     title: 'Métodos',
     intro: 'Descreva o que foi feito com detalhe suficiente para que outra equipe consiga repetir o estudo.',
   },
   {
     id: 'resultados',
+    phase: 2,
     title: 'Resultados',
     intro: 'Apresente o que foi encontrado, na mesma ordem dos Métodos, sem interpretar.',
   },
   {
     id: 'discussao',
+    phase: 2,
     title: 'Discussão',
     intro: 'Interprete os resultados, compare com a literatura e reconheça as limitações.',
   },
   {
     id: 'conclusao',
+    phase: 2,
     title: 'Conclusão',
     intro: 'A resposta ao objetivo, apoiada apenas nos seus resultados.',
   },
   {
     id: 'finais',
+    phase: 2,
     title: 'Declarações e referências',
     intro: 'Financiamento, conflitos de interesse, contribuições e a lista de referências.',
   },
   {
     id: 'revisao',
+    phase: 2,
     title: 'Revisão e exportação',
     intro: 'Confira o que falta, leia o manuscrito montado e exporte.',
   },
@@ -75,14 +124,14 @@ const identificacao: Field[] = [
   {
     id: 'titulo',
     label: 'Título',
-    singleLine: true,
+    kind: 'text',
     help: 'Diga o que foi estudado, em quem e com qual desenho. Evite abreviações.',
     example: 'Efeito do treinamento resistido sobre a força muscular em idosos: ensaio clínico randomizado',
   },
   {
     id: 'titulo_curto',
     label: 'Título resumido',
-    singleLine: true,
+    kind: 'text',
     optional: true,
     inlineLabel: 'Título resumido',
     help: 'Versão curta para o cabeçalho, se a revista pedir (em geral até 50 caracteres).',
@@ -142,7 +191,7 @@ const resumo: Field[] = [
     id: 'palavras_chave',
     label: 'Palavras-chave',
     inlineLabel: 'Palavras-chave',
-    singleLine: true,
+    kind: 'text',
     help: 'De 3 a 6 termos, de preferência do DeCS ou MeSH, separados por ponto e vírgula.',
     example: 'Treinamento de força; Idoso; Força muscular',
   },
@@ -344,16 +393,28 @@ export function getStepFields(stepId: StepId, type: StudyType | null): Field[] {
       return conclusao
     case 'finais':
       return finais
+    case 'pb_desenho': {
+      const [desenho, ...rest] = PB_FIELDS.pb_desenho
+      return [{ ...desenho, help: type?.designHint ?? 'O tipo de estudo.' }, ...rest]
+    }
     default:
-      return []
+      return PB_FIELDS[stepId] ?? []
   }
 }
 
-export function isFilled(values: Record<string, string>, id: string): boolean {
+export function visibleFields(stepId: StepId, type: StudyType | null, values: Values): Field[] {
+  return getStepFields(stepId, type).filter((f) => !f.showIf || f.showIf(values))
+}
+
+export function isFilled(values: Values, id: string): boolean {
   return (values[id] ?? '').trim().length > 0
 }
 
-export function stepProgress(stepId: StepId, type: StudyType | null, values: Record<string, string>) {
-  const required = getStepFields(stepId, type).filter((f) => !f.optional)
+export function missingFields(stepId: StepId, type: StudyType | null, values: Values): Field[] {
+  return visibleFields(stepId, type, values).filter((f) => !f.optional && !isFilled(values, f.id))
+}
+
+export function stepProgress(stepId: StepId, type: StudyType | null, values: Values) {
+  const required = visibleFields(stepId, type, values).filter((f) => !f.optional)
   return { done: required.filter((f) => isFilled(values, f.id)).length, total: required.length }
 }
