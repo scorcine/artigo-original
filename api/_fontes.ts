@@ -45,6 +45,8 @@ interface SearchOptions {
   minSources: number
   resultsPerQuery: number
   recentYears: number
+  /** Limite de caracteres por resumo; os resultados ficam no fim do resumo. */
+  maxAbstract?: number
 }
 
 /** A IA monta as buscas em inglês e o PubMed devolve artigos reais, priorizando os mais recentes. */
@@ -78,7 +80,7 @@ Responda apenas com um JSON: {"buscas": ["...", "...", "..."]}`,
     }
     if (ids.length >= options.minSources) break
   }
-  return fetchSources(ids)
+  return fetchSources(ids, options.maxAbstract)
 }
 
 export const sourceList = (sources: Source[]) =>

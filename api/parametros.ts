@@ -78,6 +78,7 @@ export async function POST(request: Request): Promise<Response> {
       minSources: 8,
       resultsPerQuery: 8,
       recentYears: 10,
+      maxAbstract: 4000,
     })
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('PubMed')) {
@@ -133,8 +134,10 @@ Responda apenas com um JSON: {"valores": {${need.keys.map((k) => `"${k}": númer
         notes.push(`O valor ${String(v).replace('.', ',')} não aparece literalmente nos resumos citados (pode ter sido calculado a partir deles): confira no artigo.`)
       }
     }
-    if (need.keys.some((k) => values[k] === undefined)) {
+    const complete = need.keys.every((k) => values[k] !== undefined)
+    if (!complete) {
       notes.push('A literatura encontrada não trouxe todos os valores necessários: complete os que faltam com base em um estudo piloto ou em outro artigo.')
+      return Response.json({ valores: values, base: '', referencias: [], avisos: notes })
     }
 
     const { text, newRefs } = numberCitations(base, sources, existingRefs)

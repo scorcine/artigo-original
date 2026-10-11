@@ -84,7 +84,7 @@ function vancouver(s: Summary): string {
   return doi ? `${ref} doi:${doi}` : ref
 }
 
-export async function fetchSources(ids: string[]): Promise<Source[]> {
+export async function fetchSources(ids: string[], maxAbstract = MAX_ABSTRACT): Promise<Source[]> {
   if (ids.length === 0) return []
   const idList = ids.join(',')
   const summaryResponse = await get(`${EUTILS}/esummary.fcgi?${params({ id: idList, retmode: 'json' })}`)
@@ -99,7 +99,7 @@ export async function fetchSources(ids: string[]): Promise<Source[]> {
       const label = attrs.match(/Label="([^"]+)"/)?.[1]
       return label ? `${label}: ${decode(text)}` : decode(text)
     })
-    if (pmid && parts.length) abstracts.set(pmid, parts.join(' ').slice(0, MAX_ABSTRACT))
+    if (pmid && parts.length) abstracts.set(pmid, parts.join(' ').slice(0, maxAbstract))
   }
 
   return ids
