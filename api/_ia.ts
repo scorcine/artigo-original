@@ -68,17 +68,26 @@ function friendlyFailure(kind: FailureKind | undefined): AiFailure {
   return new AiFailure('O serviço de IA está sobrecarregado agora. Espere alguns segundos e tente de novo.', 503)
 }
 
+/** Modelos cuja cota acabou ficam de fora por um tempo, para não gastar tentativas com eles. */
+const QUOTA_PAUSE_MS = 15 * 60 * 1000
+const exhaustedUntil = new Map<string, number>()
+
 /** Gera texto tentando os modelos em ordem; erros de chave não passam para o próximo modelo. */
 export async function generate(task: Task, system: string, prompt: string): Promise<string> {
+  const all = pickModels(task)
+  const available = all.filter((m) => (exhaustedUntil.get(m.modelId) ?? 0) < Date.now())
+  const models = available.length > 0 ? available : all
   let lastKind: FailureKind | undefined
-  for (const model of pickModels(task)) {
+  for (const [i, model] of models.entries()) {
     try {
-      const { text } = await generateText({ model, system, prompt, maxRetries: 1 })
+      const isLast = i === models.length - 1
+      const { text } = await generateText({ model, system, prompt, maxRetries: isLast ? 2 : 0 })
       return text
     } catch (error) {
       lastKind = classify(error)
       console.error(`Falha no modelo ${model.modelId} (${lastKind})`, error)
       if (lastKind === 'chave') break
+      if (lastKind === 'cota') exhaustedUntil.set(model.modelId, Date.now() + QUOTA_PAUSE_MS)
     }
   }
   throw friendlyFailure(lastKind)
