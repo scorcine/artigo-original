@@ -9,10 +9,13 @@ interface Body {
   guideline?: string
   plainLanguage?: boolean
   context?: string
+  notes?: string
+  guide?: string
 }
 
 const MAX_META = 1500
 const MAX_CONTEXT = 16000
+const MAX_NOTES = 6000
 
 const SYSTEM = `Você é um pesquisador experiente da área da saúde que ajuda colegas a redigir projetos para o sistema CEP/CONEP (Plataforma Brasil) e artigos originais para periódicos.
 Como você trabalha:
@@ -51,18 +54,30 @@ export async function POST(request: Request): Promise<Response> {
     .map(([label, value]) => `${label}: ${value}`)
     .join('\n')
 
+  const notes = clip(body.notes, MAX_NOTES)
+  const guide = clip(body.guide, MAX_META)
+
   const prompt = `Escreva um rascunho para o campo descrito abaixo.
 
 ${about}
-
-Informações já preenchidas pelo pesquisador:
+${
+  notes
+    ? `
+Anotações do pesquisador para este campo (ideias soltas, não o texto final). São a base principal: desenvolva, organize e complete cada ideia, sem perder nenhuma e sem contradizê-las:
+"""
+${notes}
+"""
+`
+    : ''
+}
+Informações já preenchidas pelo pesquisador em outros campos:
 """
 ${context || '(nenhuma informação preenchida ainda)'}
 """
 
 Como escrever:
 - ${style}
-- Escreva somente o conteúdo do campo, em parágrafos (ou na forma indicada pelo exemplo), sem título.
+${guide ? `- Estrutura exigida para este campo:\n${guide}\n` : ''}- Escreva somente o conteúdo do campo, em parágrafos (ou na forma indicada pelo exemplo ou pela estrutura exigida), sem título.
 - Escreva um texto completo e útil, específico para este estudo. Use [COMPLETAR: ...] só para fatos concretos que faltam, não para escolhas que você mesmo pode propor.
 - Em "pendencias", liste de 0 a 5 itens: as propostas a confirmar ("Confirme: ...") e os fatos a completar.
 

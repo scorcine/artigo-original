@@ -398,8 +398,8 @@ function TextAssist({
   const [previous, setPrevious] = useState<Undo | null>(null)
 
   const canReview = value.trim().length >= MIN_REVIEW_CHARS
-  const canGenerate =
-    !canReview && !field.introRole && !field.sampleSize && step.id !== 'resultados' && !NO_GENERATE.has(field.id)
+  const canGenerate = !field.introRole && !field.sampleSize && step.id !== 'resultados' && !NO_GENERATE.has(field.id)
+  const hasNotes = value.trim() !== ''
   if (!canReview && !canGenerate && !field.introRole && !suggestion && previous === null) return null
 
   const run = async (mode: Suggestion['mode']) => {
@@ -434,7 +434,13 @@ function TextAssist({
           sourceCount: intro.fontes,
         })
       } else {
-        const draft = await draftText({ ...request, example: field.example, context: studyContext(values, type, field.id) })
+        const draft = await draftText({
+          ...request,
+          example: field.example,
+          guide: field.writeGuide,
+          notes: value.trim(),
+          context: studyContext(values, type, field.id),
+        })
         setSuggestion({ mode, text: draft.texto, notes: draft.pendencias })
       }
     } catch (e) {
@@ -479,8 +485,14 @@ function TextAssist({
           </button>
         )}
         {canGenerate && (
-          <button type="button" className="suggest" onClick={() => run('gerar')} disabled={loading}>
-            Gerar com IA
+          <button
+            type="button"
+            className="suggest"
+            onClick={() => run('gerar')}
+            disabled={loading}
+            title={hasNotes ? 'Usa o que você escreveu como base e escreve o texto completo' : undefined}
+          >
+            {hasNotes ? 'Desenvolver com IA' : 'Gerar com IA'}
           </button>
         )}
         {previous !== null && (

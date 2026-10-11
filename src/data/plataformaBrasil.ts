@@ -98,7 +98,12 @@ export const PB_FIELDS: Record<string, Field[]> = {
       id: 'pb_resumo',
       label: 'Resumo',
       rows: 6,
-      help: 'Contexto, objetivo, método e resultados esperados, em um texto curto.',
+      help: 'Introdução com a justificativa, objetivo, metodologia e resultados esperados. Pode escrever só a ideia do trabalho, mesmo em tópicos, e clicar em "Desenvolver com IA".',
+      writeGuide: `Resumo de projeto para a Plataforma Brasil, entre 250 e 350 palavras, em quatro parágrafos que começam pelos rótulos abaixo:
+"Introdução:" 2 a 4 frases com o contexto do problema e a justificativa do estudo (por que ele é necessário), sem citações.
+"Objetivo:" o objetivo primário, com verbo no infinitivo, e os secundários se houver.
+"Metodologia:" desenho do estudo, local e período, população e critérios de inclusão principais, procedimentos e instrumentos, variáveis e estratificações, tamanho da amostra e análise estatística. Deduza das anotações o que for possível propor (por exemplo, testes estatísticos adequados às variáveis) e liste essas propostas como "Confirme: ...".
+"Resultados esperados:" o que o estudo pretende demonstrar e as possíveis conclusões e contribuições para a prática clínica, escritos como expectativas ou hipóteses, sem inventar números.`,
     },
     {
       id: 'pb_introducao',

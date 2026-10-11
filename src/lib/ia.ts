@@ -72,7 +72,9 @@ export interface GeneratedDraft {
   pendencias: string[]
 }
 
-export function draftText(request: FieldRequest & { example?: string; context: string }): Promise<GeneratedDraft> {
+export function draftText(
+  request: FieldRequest & { example?: string; guide?: string; notes?: string; context: string },
+): Promise<GeneratedDraft> {
   return post<GeneratedDraft>('/api/gerar', request, 'Não foi possível gerar o rascunho agora.')
 }
 

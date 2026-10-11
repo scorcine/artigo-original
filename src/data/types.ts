@@ -24,6 +24,8 @@ export interface Field {
   introRole?: 'completa' | 'contexto' | 'justificativa'
   /** Mostra a calculadora de tamanho amostral abaixo do campo. */
   sampleSize?: boolean
+  /** Instruções extras para a IA ao escrever este campo. */
+  writeGuide?: string
   /** Mostra o campo como tabela de etapas com data de início e de término. */
   schedule?: boolean
 }
