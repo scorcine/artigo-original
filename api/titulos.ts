@@ -1,5 +1,4 @@
-import { generateText } from 'ai'
-import { AI_FAILURE_MESSAGE, clip, errorResponse, isRateLimited, NO_KEY_MESSAGE, pickModel } from './_ia.js'
+import { clip, errorResponse, failureResponse, generate, hasKey, isRateLimited, NO_KEY_MESSAGE } from './_ia.js'
 
 type Kind = 'cientifico' | 'publico'
 
@@ -33,8 +32,7 @@ const GUIDES: Record<Kind, string> = {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const model = pickModel('titulos')
-  if (!model) return errorResponse(NO_KEY_MESSAGE, 503)
+  if (!hasKey()) return errorResponse(NO_KEY_MESSAGE, 503)
   if (isRateLimited(request, 30)) return errorResponse('Muitos pedidos seguidos. Tente de novo daqui a pouco.', 429)
 
   let body: Body
@@ -68,12 +66,11 @@ Responda apenas com um JSON no formato:
 Gere 5 opções diferentes entre si, em português do Brasil.`
 
   try {
-    const { text } = await generateText({
-      model,
-      system: 'Você é um editor de periódicos científicos da área da saúde, experiente em títulos de artigos originais.',
+    const text = await generate(
+      'titulos',
+      'Você é um editor de periódicos científicos da área da saúde, experiente em títulos de artigos originais.',
       prompt,
-      maxRetries: 1,
-    })
+    )
     const json = text.match(/\[[\s\S]*\]/)?.[0]
     const parsed: unknown = json ? JSON.parse(json) : null
     const suggestions = Array.isArray(parsed)
@@ -85,7 +82,6 @@ Gere 5 opções diferentes entre si, em português do Brasil.`
     if (suggestions.length === 0) return errorResponse('A IA não retornou sugestões. Tente de novo.', 502)
     return Response.json({ sugestoes: suggestions })
   } catch (error) {
-    console.error('Falha ao gerar títulos', error)
-    return errorResponse(AI_FAILURE_MESSAGE, 502)
+    return failureResponse(error)
   }
 }

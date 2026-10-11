@@ -1,5 +1,4 @@
-import { generateText } from 'ai'
-import { AI_FAILURE_MESSAGE, clip, errorResponse, isRateLimited, NO_KEY_MESSAGE, pickModel } from './_ia.js'
+import { clip, errorResponse, failureResponse, generate, hasKey, isRateLimited, NO_KEY_MESSAGE } from './_ia.js'
 
 interface Body {
   text?: string
@@ -22,8 +21,7 @@ Regras que você nunca quebra:
 - Se faltar alguma informação importante, não a crie: aponte a falta nas observações.`
 
 export async function POST(request: Request): Promise<Response> {
-  const model = pickModel('revisao')
-  if (!model) return errorResponse(NO_KEY_MESSAGE, 503)
+  if (!hasKey()) return errorResponse(NO_KEY_MESSAGE, 503)
   if (isRateLimited(request, 60)) return errorResponse('Muitos pedidos seguidos. Tente de novo daqui a pouco.', 429)
 
   let body: Body
@@ -70,7 +68,7 @@ Responda apenas com um JSON no formato:
 {"revisado": "texto revisado", "observacoes": ["...", "..."]}`
 
   try {
-    const { text: answer } = await generateText({ model, system: SYSTEM, prompt, maxRetries: 1 })
+    const answer = await generate('revisao', SYSTEM, prompt)
     const json = answer.match(/\{[\s\S]*\}/)?.[0]
     const parsed = (json ? JSON.parse(json) : null) as { revisado?: unknown; observacoes?: unknown } | null
     const revised = typeof parsed?.revisado === 'string' ? parsed.revisado.trim() : ''
@@ -80,7 +78,6 @@ Responda apenas com um JSON no formato:
       : []
     return Response.json({ revisado: revised, observacoes: notes })
   } catch (error) {
-    console.error('Falha ao revisar texto', error)
-    return errorResponse(AI_FAILURE_MESSAGE, 502)
+    return failureResponse(error)
   }
 }
