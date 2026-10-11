@@ -340,6 +340,8 @@ function FieldInput({
           draft={value}
           values={values}
           studyTypeName={type?.name}
+          instructionsId={`${field.id}__orientacoes`}
+          onChange={onChange}
           onUse={(title) => onChange(field.id, title)}
         />
       )}
@@ -578,23 +580,28 @@ function TitleSuggestions({
   draft,
   values,
   studyTypeName,
+  instructionsId,
+  onChange,
   onUse,
 }: {
   kind: 'cientifico' | 'publico'
   draft: string
   values: Values
   studyTypeName: string | undefined
+  instructionsId: string
+  onChange: (id: string, value: string) => void
   onUse: (title: string) => void
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [suggestions, setSuggestions] = useState<TitleSuggestion[]>([])
+  const instructions = values[instructionsId] ?? ''
 
   const run = async () => {
     setLoading(true)
     setError('')
     try {
-      setSuggestions(await suggestTitles(kind, draft, values, studyTypeName))
+      setSuggestions(await suggestTitles(kind, draft, values, studyTypeName, instructions.trim()))
     } catch (e) {
       setSuggestions([])
       setError(e instanceof Error ? e.message : 'Não foi possível gerar sugestões agora.')
@@ -605,6 +612,18 @@ function TitleSuggestions({
 
   return (
     <div className="title-suggestions">
+      <label className="title-instructions">
+        <span>
+          Orientações para a IA <span className="optional">opcional</span>
+        </span>
+        <textarea
+          rows={2}
+          value={instructions}
+          placeholder="Ex.: o foco não é comparar diabéticos e não diabéticos; é avaliar o conteúdo gástrico e os fatores associados (IMC, doenças crônicas, tirzepatida, idade)."
+          onChange={(e) => onChange(instructionsId, e.target.value)}
+        />
+        <span className="help">Diga o que corrigir ou destacar nos títulos. Vale mais do que o que a IA deduz dos outros campos.</span>
+      </label>
       <button type="button" className="suggest" onClick={run} disabled={loading}>
         {loading ? 'Gerando sugestões…' : suggestions.length ? 'Gerar outras sugestões' : 'Sugerir títulos melhores'}
       </button>

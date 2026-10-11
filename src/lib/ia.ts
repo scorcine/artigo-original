@@ -35,11 +35,13 @@ export async function suggestTitles(
   draft: string,
   values: Values,
   studyTypeName: string | undefined,
+  instructions = '',
 ): Promise<TitleSuggestion[]> {
   const context = {
     tipoEstudo: studyTypeName ?? '',
     desenho: first(values, 'pb_desenho', 'met_desenho'),
     objetivo: first(values, 'pb_objetivo_primario', 'intro_objetivo'),
+    resumo: first(values, 'pb_resumo'),
     area: first(values, 'pb_area_saude'),
     descritores: first(values, 'pb_descritores', 'palavras_chave'),
     populacao: first(values, 'pb_inclusao'),
@@ -47,7 +49,7 @@ export async function suggestTitles(
   }
   const data = await post<{ sugestoes?: TitleSuggestion[] }>(
     '/api/titulos',
-    { kind, draft, context },
+    { kind, draft, instructions, context },
     'Não foi possível gerar sugestões agora.',
   )
   if (!data.sugestoes?.length) throw new Error('Não foi possível gerar sugestões agora.')

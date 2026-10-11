@@ -5,15 +5,17 @@ type Kind = 'cientifico' | 'publico'
 interface Body {
   kind?: Kind
   draft?: string
+  instructions?: string
   context?: Record<string, string>
 }
 
-const MAX_FIELD = 1500
+const MAX_FIELD = 3000
 
 const CONTEXT_LABELS: Record<string, string> = {
   tipoEstudo: 'Tipo de estudo',
   desenho: 'Desenho do estudo',
   objetivo: 'Objetivo',
+  resumo: 'Resumo',
   area: 'Área da saúde',
   descritores: 'Descritores',
   populacao: 'Critérios de inclusão (população)',
@@ -44,13 +46,14 @@ export async function POST(request: Request): Promise<Response> {
 
   const kind: Kind = body.kind === 'publico' ? 'publico' : 'cientifico'
   const draft = clip(body.draft, MAX_FIELD)
+  const instructions = clip(body.instructions, MAX_FIELD)
   const context = Object.entries(CONTEXT_LABELS)
     .map(([key, label]) => [label, clip(body.context?.[key], MAX_FIELD)] as const)
     .filter(([, value]) => value)
     .map(([label, value]) => `${label}: ${value}`)
     .join('\n')
 
-  if (!draft && !context) {
+  if (!draft && !context && !instructions) {
     return errorResponse('Escreva um título ou preencha o objetivo do estudo antes de pedir sugestões.', 400)
   }
 
@@ -60,7 +63,11 @@ Use somente as informações abaixo. Não invente dados como local, ano, número
 
 Título escrito pelo pesquisador: ${draft || '(ainda não escrito)'}
 ${context ? `\nInformações do estudo:\n${context}` : ''}
-
+${
+  instructions
+    ? `\nOrientações do pesquisador para os títulos (têm prioridade sobre as informações acima; se houver conflito, siga as orientações):\n${instructions}\n`
+    : ''
+}
 Responda apenas com um JSON no formato:
 [{"titulo": "...", "motivo": "frase curta dizendo o que melhorou em relação ao título original"}]
 Gere 5 opções diferentes entre si, em português do Brasil.`
