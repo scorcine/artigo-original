@@ -42,7 +42,9 @@ Texto completo (cada campo marcado com <<campo id="..." titulo="...">>):
 ${document}
 
 Regras:
-- Aplique exatamente a correção escolhida, em todos os campos necessários para o texto ficar coerente (inclusive outros além dos mais afetados, se preciso).
+- Aplique exatamente a correção escolhida, em todos os campos necessários para o texto ficar coerente (inclusive outros além dos mais afetados, se preciso). Se os campos não foram informados, encontre-os pelo texto do problema.
+- Se o problema cita mais de um defeito, corrija todos. Quando houver uma contradição e o pesquisador não disse qual lado manter, mantenha o que está no objetivo e na metodologia e ajuste o resto.
+- Se falta a justificativa de um número (ex.: tamanho da amostra), escreva a justificativa com os dados que já estão no texto e use [COMPLETAR: ...] para os parâmetros que faltarem.
 - Altere só o necessário: mantenha idênticas as frases que não precisam mudar.
 - Não invente dados concretos (números, locais, datas, nomes, resultados); onde faltar, escreva [COMPLETAR: o que falta].
 - Campos do TCLE (ids que começam com "tcle_") são lidos pelos participantes: linguagem simples, sem jargão nem siglas, tratando o leitor por "você".

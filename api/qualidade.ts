@@ -13,25 +13,72 @@ const CRITERIA = [
   'Adequação às exigências',
 ]
 
-const MAX_PROBLEMS = 6
+const MAX_PROBLEMS = 8
+/** Critérios com nota abaixo disso precisam ter pelo menos um problema para corrigir. */
+const NEEDS_FIX = 8
 
-function problems(raw: unknown, parts: Map<string, string>) {
-  if (!Array.isArray(raw)) return []
-  return raw
+type Criterion = { nome: string; nota: number; comentario: string }
+type Problem = { criterio: string; problema: string; campos: string[]; opcoes: { rotulo: string; efeito: string }[] }
+
+const norm = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+
+/** A IA às vezes devolve o título do campo em vez do id. */
+function fieldId(raw: string, titles: Map<string, string>): string | undefined {
+  if (titles.has(raw)) return raw
+  const wanted = norm(raw)
+  if (!wanted) return undefined
+  for (const [id, title] of titles) {
+    const t = norm(title)
+    if (t === wanted || norm(title.split(' › ').pop() ?? '') === wanted || t.endsWith(wanted)) return id
+  }
+  return undefined
+}
+
+function criterionOf(raw: string): string {
+  const n = norm(raw)
+  return CRITERIA.find((c) => n.startsWith(norm(c).slice(0, 12))) ?? raw
+}
+
+function problems(raw: unknown, titles: Map<string, string>, criteria: Criterion[]): Problem[] {
+  const list: Problem[] = (Array.isArray(raw) ? raw : [])
     .map((item) => {
       const r = (item ?? {}) as Record<string, unknown>
       const options = Array.isArray(r.opcoes) ? (r.opcoes as Record<string, unknown>[]) : []
+      const fields = (Array.isArray(r.campos) ? r.campos : [])
+        .map((c) => fieldId(str(c, 200), titles))
+        .filter((c): c is string => !!c)
       return {
-        criterio: str(r.criterio, 80),
+        criterio: criterionOf(str(r.criterio, 80)),
         problema: str(r.problema, 800),
-        campos: (Array.isArray(r.campos) ? r.campos : []).map((c) => str(c, 80)).filter((c) => parts.has(c)),
+        campos: [...new Set(fields)],
         opcoes: options
           .map((o) => ({ rotulo: str(o?.rotulo, 160), efeito: str(o?.efeito, 400) }))
           .filter((o) => o.rotulo)
           .slice(0, 3),
       }
     })
-    .filter((p) => p.problema && p.campos.length > 0 && p.opcoes.length >= 2)
+    .filter((p) => p.problema && p.opcoes.length > 0)
+
+  for (const c of criteria) {
+    if (c.nota >= NEEDS_FIX || !c.comentario || list.some((p) => p.criterio === c.nome)) continue
+    list.push({
+      criterio: c.nome,
+      problema: c.comentario,
+      campos: [],
+      opcoes: [{ rotulo: 'Corrigir como a análise sugere', efeito: 'A IA ajusta todos os campos citados no comentário.' }],
+    })
+  }
+
+  const score = (p: Problem) => criteria.find((c) => c.nome === p.criterio)?.nota ?? 10
+  return list
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => score(a.p) - score(b.p) || a.i - b.i)
+    .map(({ p }) => p)
     .slice(0, MAX_PROBLEMS)
 }
 
@@ -48,7 +95,7 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return errorResponse('Pedido inválido.', 400)
   }
-  const { parts, document } = readProject(body)
+  const { parts, titles, document } = readProject(body)
   if (parts.size === 0) return errorResponse('Preencha o texto antes de pedir a análise.', 400)
 
   const project = body.fase === 1
@@ -69,21 +116,24 @@ ${CRITERIA.map((c) => `- ${c}`).join('\n')}
 "Coerência entre as partes": objetivo, desenho, população, desfechos, tamanho da amostra e análise estatística combinam entre si?
 "Adequação às exigências": ${requirements}.
 
-Depois liste até ${MAX_CORRECTIONS} correções, das mais importantes para as menos importantes (erros de português, frases confusas, termos imprecisos, incoerências, informações que faltam). Para cada uma:
+Em seguida, liste os PROBLEMAS (até ${MAX_PROBLEMS}), começando pelos mais graves. Esta é a parte mais importante:
+- Todo defeito citado no comentário de um critério com nota abaixo de 9 deve virar um problema. Se um comentário cita dois defeitos (ex.: uma contradição e um tamanho de amostra sem justificativa), crie dois problemas separados.
+- Inclua incoerências entre partes, justificativas ou cálculos que faltam, textos inadequados ao público (ex.: TCLE em linguagem técnica) e exigências não atendidas.
+Para cada problema:
+- "criterio": o nome exato do critério afetado;
+- "problema": o que está errado, em uma ou duas frases, citando os campos;
+- "campos": os ids (não os títulos) dos campos que precisariam mudar;
+- "opcoes": de 2 a 3 formas diferentes e concretas de corrigir, cada uma com "rotulo" (até 12 palavras, começando por verbo) e "efeito" (o que muda no texto, em uma frase).
+
+Depois liste até ${MAX_CORRECTIONS} correções pontuais, que não repitam os problemas acima, das mais importantes para as menos importantes (erros de português, frases confusas, termos imprecisos). Para cada uma:
 - "campo": o id do campo;
 - "trecho": cópia exata, caractere por caractere, de um trecho curto do campo (até 40 palavras) a ser substituído;
 - "problema": o que está errado, em uma frase;
 - "sugestao": o texto que deve substituir o trecho, pronto para uso, sem inventar dados (use [COMPLETAR: ...] se faltar uma informação concreta).
-Liste também até 3 pontos fortes.
+Por fim, até 3 pontos fortes.
 
-Por fim, liste até ${MAX_PROBLEMS} problemas maiores que precisam de uma decisão do pesquisador para serem corrigidos, principalmente os que tiraram pontos dos critérios com nota abaixo de 8 (incoerências entre partes, justificativas que faltam, textos inadequados ao público, exigências não atendidas). Para cada um:
-- "criterio": o nome do critério afetado;
-- "problema": o que está errado, em uma ou duas frases;
-- "campos": os ids dos campos que precisariam mudar;
-- "opcoes": de 2 a 3 formas diferentes e concretas de corrigir, cada uma com "rotulo" (até 12 palavras, começando por verbo) e "efeito" (o que muda no texto, em uma frase).
-
-Responda apenas com um JSON:
-{"criterios": [{"nome": "...", "nota": 0, "comentario": "..."}], "pontosFortes": ["..."], "correcoes": [{"campo": "...", "trecho": "...", "problema": "...", "sugestao": "..."}], "problemas": [{"criterio": "...", "problema": "...", "campos": ["..."], "opcoes": [{"rotulo": "...", "efeito": "..."}]}]}`,
+Responda apenas com um JSON, nesta ordem:
+{"criterios": [{"nome": "...", "nota": 0, "comentario": "..."}], "problemas": [{"criterio": "...", "problema": "...", "campos": ["..."], "opcoes": [{"rotulo": "...", "efeito": "..."}]}], "correcoes": [{"campo": "...", "trecho": "...", "problema": "...", "sugestao": "..."}], "pontosFortes": ["..."]}`,
     )
     const parsed = parseJson<{ criterios?: unknown; pontosFortes?: unknown; correcoes?: unknown; problemas?: unknown }>(
       answer,
@@ -99,7 +149,7 @@ Responda apenas com um JSON:
         nota: Number.isFinite(nota) ? Math.min(10, Math.max(0, Math.round(nota * 10) / 10)) : null,
         comentario: str(c?.comentario, 600),
       }
-    }).filter((c): c is { nome: string; nota: number; comentario: string } => c.nota !== null)
+    }).filter((c): c is Criterion => c.nota !== null)
     if (criteria.length === 0) return errorResponse('A IA não retornou a avaliação. Tente de novo.', 502)
 
     return Response.json({
@@ -109,7 +159,7 @@ Responda apenas com um JSON:
         ? parsed.pontosFortes.map((s) => str(s, 400)).filter(Boolean).slice(0, 3)
         : [],
       correcoes: findings(parsed?.correcoes, parts, ['problema']).slice(0, MAX_CORRECTIONS),
-      problemas: problems(parsed?.problemas, parts),
+      problemas: problems(parsed?.problemas, titles, criteria),
     })
   } catch (error) {
     return failureResponse(error)

@@ -240,7 +240,9 @@ function ProblemCard({
   return (
     <div className={`analysis-item problem${problem.resolvido ? ' resolved' : ''}`}>
       <p className="analysis-where">
-        {problem.criterio} · {problem.campos.map((c) => titles.get(c)?.split(' › ').pop() ?? c).join(', ')}
+        {[problem.criterio, problem.campos.map((c) => titles.get(c)?.split(' › ').pop() ?? c).join(', ')]
+          .filter(Boolean)
+          .join(' · ')}
       </p>
       <p>{problem.problema}</p>
 
@@ -335,13 +337,27 @@ function ProblemCard({
   )
 }
 
+/** Critérios com nota baixa que a IA não transformou em problema viram um problema corrigível. */
+function withCriteriaProblems(saved: QualityAnalysis | null | undefined): QualityProblem[] {
+  const list = saved?.problemas ?? []
+  const extra = (saved?.criterios ?? [])
+    .filter((c) => c.nota < 8 && c.comentario && !list.some((p) => p.criterio === c.nome))
+    .map((c) => ({
+      criterio: c.nome,
+      problema: c.comentario,
+      campos: [],
+      opcoes: [{ rotulo: 'Corrigir como a análise sugere', efeito: 'A IA ajusta todos os campos citados no comentário.' }],
+    }))
+  return [...list, ...extra]
+}
+
 export function QualityPanel(props: PanelProps) {
   const { phase, type, values, onChange } = props
   const what = phase === 1 ? 'projeto' : 'artigo'
   const storeId = `qualidade_fase${phase}`
   const { loading, error, parts, run, saved } = useSavedRun<QualityAnalysis>(storeId, props, analyzeQuality)
   const titles = new Map(parts.map((p) => [p.id, p.titulo]))
-  const problems = saved?.problemas ?? []
+  const problems = withCriteriaProblems(saved)
 
   const markResolved = (index: number, choice: string | undefined) => {
     if (!saved) return
@@ -381,16 +397,6 @@ export function QualityPanel(props: PanelProps) {
               </li>
             ))}
           </ul>
-          {saved.pontosFortes.length > 0 && (
-            <>
-              <h4>Pontos fortes</h4>
-              <ul className="analysis-strengths">
-                {saved.pontosFortes.map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
-            </>
-          )}
           {problems.length > 0 && (
             <>
               <h4>Problemas para corrigir ({problems.filter((p) => !p.resolvido).length})</h4>
@@ -409,6 +415,16 @@ export function QualityPanel(props: PanelProps) {
                   onResolved={(choice) => markResolved(i, choice)}
                 />
               ))}
+            </>
+          )}
+          {saved.pontosFortes.length > 0 && (
+            <>
+              <h4>Pontos fortes</h4>
+              <ul className="analysis-strengths">
+                {saved.pontosFortes.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
             </>
           )}
 
