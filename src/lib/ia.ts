@@ -141,7 +141,7 @@ export type SimilarityLevel = 'baixo' | 'moderado' | 'alto'
 
 export interface PlagiarismCheck {
   internet:
-    | { status: 'indisponivel' | 'erro' }
+    | { status: 'indisponivel' | 'erro' | 'sem_cota' }
     | {
         status: 'ok'
         frasesPesquisadas: number

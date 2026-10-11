@@ -1,4 +1,5 @@
 import {
+  AiFailure,
   canSearchWeb,
   errorResponse,
   failureResponse,
@@ -12,6 +13,7 @@ import {
 import { parseJson } from './_fontes.js'
 import { countWords, findings, level, readProject, str, type Project, type ProjectBody } from './_projeto.js'
 import { fetchSources, idsForDois, type Source } from './_pubmed.js'
+import { fetchPage, matchPages, pickForSearch, sentencesOf, type Page } from './_web.js'
 
 const MAX_REFS = 40
 const MAX_ABSTRACT = 1500
@@ -19,110 +21,12 @@ const MAX_CITED_PASSAGES = 12
 
 const SEARCHED_SENTENCES = 10
 const MAX_PAGES = 20
-const PAGE_TIMEOUT_MS = 10000
-const MAX_PAGE_CHARS = 2_000_000
-const SHINGLE = 5
-const MIN_SENTENCE_WORDS = 10
-const MAX_SEARCH_WORDS = 50
-/** Fração das sequências de 5 palavras da frase que precisa aparecer na página para contar como cópia. */
-const MATCH_RATIO = 0.5
 const MAX_WEB_PASSAGES = 15
 
 const DOI = /\b10\.\d{4,9}\/[^\s,;]+/i
 
 const SYSTEM =
   'Você é um revisor experiente de integridade científica em textos acadêmicos da área da saúde, rigoroso e construtivo.'
-
-interface Sentence {
-  campo: string
-  text: string
-  shingles: string[]
-}
-
-const plain = (s: string) =>
-  s
-    .replace(/\[COMPLETAR[^\]]*\]/gi, ' ')
-    .replace(/\(\d+(?:\s*[,–-]\s*\d+)*\)/g, ' ')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-
-function shingles(text: string): string[] {
-  const t = plain(text).split(' ').filter(Boolean)
-  const out: string[] = []
-  for (let i = 0; i + SHINGLE <= t.length; i++) out.push(t.slice(i, i + SHINGLE).join(' '))
-  return out
-}
-
-function sentencesOf(parts: Map<string, string>): Sentence[] {
-  const out: Sentence[] = []
-  for (const [campo, text] of parts) {
-    for (const line of text.split(/\r?\n/)) {
-      for (const raw of line.split(/(?<=[.!?;])\s+/)) {
-        const sentence = raw.trim()
-        if (countWords(plain(sentence)) >= MIN_SENTENCE_WORDS) out.push({ campo, text: sentence, shingles: shingles(sentence) })
-      }
-    }
-  }
-  return out
-}
-
-/** As frases mais longas de cada campo, alternando entre os campos. */
-function pickForSearch(sentences: Sentence[]): Sentence[] {
-  const byField = new Map<string, Sentence[]>()
-  for (const s of sentences) {
-    if (countWords(s.text) > MAX_SEARCH_WORDS) continue
-    byField.set(s.campo, [...(byField.get(s.campo) ?? []), s])
-  }
-  const queues = [...byField.values()].map((list) => [...list].sort((a, b) => b.shingles.length - a.shingles.length))
-  const picked: Sentence[] = []
-  while (picked.length < SEARCHED_SENTENCES && queues.some((q) => q.length)) {
-    for (const q of queues) {
-      const next = q.shift()
-      if (next && picked.length < SEARCHED_SENTENCES) picked.push(next)
-    }
-  }
-  return picked
-}
-
-const decodeEntities = (s: string) =>
-  s
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&([a-z])(acute|grave|circ|tilde|cedil|uml);/gi, '$1')
-
-interface Page {
-  url: string
-  title: string
-  shingles: Set<string>
-}
-
-async function fetchPage(source: WebSource): Promise<Page | null> {
-  try {
-    const response = await fetch(source.url, {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(PAGE_TIMEOUT_MS),
-      headers: { 'User-Agent': 'Mozilla/5.0 (verificacao de similaridade academica)', Accept: 'text/html,text/plain' },
-    })
-    const type = response.headers.get('content-type') ?? ''
-    if (!response.ok || !/text\/(html|plain)|xhtml/.test(type)) return null
-    const html = (await response.text()).slice(0, MAX_PAGE_CHARS)
-    const title = decodeEntities(/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? '').trim()
-    const text = decodeEntities(
-      html
-        .replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, ' ')
-        .replace(/<[^>]+>/g, ' '),
-    )
-    return { url: response.url || source.url, title: title || source.title, shingles: new Set(shingles(text)) }
-  } catch {
-    return null
-  }
-}
 
 async function rewrite(passages: { trecho: string }[]): Promise<string[]> {
   if (passages.length === 0) return []
@@ -147,36 +51,24 @@ Responda apenas com um JSON: {"reescritas": [{"n": 1, "texto": "..."}]}`,
 async function checkInternet(project: Project, totalWords: number) {
   if (!canSearchWeb()) return { status: 'indisponivel' as const }
   const sentences = sentencesOf(project.parts)
-  const searched = pickForSearch(sentences)
+  const searched = pickForSearch(sentences, SEARCHED_SENTENCES)
   if (searched.length === 0) return { status: 'indisponivel' as const }
 
-  const { sources } = await searchWeb(
-    SYSTEM,
-    `Quero saber se as frases abaixo já existem publicadas na internet (artigos, teses, dissertações, sites, apostilas). Faça uma busca no Google para cada frase, usando entre aspas um trecho característico de 8 a 12 palavras dela. Depois de pesquisar todas, responda apenas "ok".
+  let sources: WebSource[]
+  try {
+    ;({ sources } = await searchWeb(
+      SYSTEM,
+      `Quero saber se as frases abaixo já existem publicadas na internet (artigos, teses, dissertações, sites, apostilas). Faça uma busca no Google para cada frase, usando entre aspas um trecho característico de 8 a 12 palavras dela. Depois de pesquisar todas, responda apenas "ok".
 
 ${searched.map((s, i) => `${i + 1}. ${s.text}`).join('\n')}`,
-  )
+    ))
+  } catch (error) {
+    if (error instanceof AiFailure && error.status === 429) return { status: 'sem_cota' as const }
+    throw error
+  }
   const unique = [...new Map(sources.map((s) => [s.url, s])).values()].slice(0, MAX_PAGES)
   const pages = (await Promise.all(unique.map(fetchPage))).filter((p): p is Page => p !== null)
-
-  const matches: { campo: string; trecho: string; url: string; titulo: string; semelhanca: number }[] = []
-  for (const s of sentences) {
-    if (s.shingles.length === 0) continue
-    let best: { page: Page; ratio: number } | null = null
-    for (const page of pages) {
-      const ratio = s.shingles.filter((sh) => page.shingles.has(sh)).length / s.shingles.length
-      if (ratio >= MATCH_RATIO && (!best || ratio > best.ratio)) best = { page, ratio }
-    }
-    if (best) {
-      matches.push({
-        campo: s.campo,
-        trecho: s.text,
-        url: best.page.url,
-        titulo: best.page.title,
-        semelhanca: Math.round(best.ratio * 100),
-      })
-    }
-  }
+  const matches = matchPages(sentences, pages)
   const shown = matches.slice(0, MAX_WEB_PASSAGES)
   const rewritten = await rewrite(shown).catch(() => shown.map(() => ''))
   const percent = totalWords

@@ -8,8 +8,8 @@ export type Task = 'titulos' | 'revisao'
 /** Modelos tentados em ordem: se um estiver sobrecarregado ou indisponível, passa para o próximo. */
 const MODELS = {
   google: {
-    titulos: ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash'],
-    revisao: ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash'],
+    titulos: ['gemini-3.8-flash', 'gemini-3.6-flash'],
+    revisao: ['gemini-3.8-flash', 'gemini-3.6-flash'],
   },
   openai: { titulos: ['gpt-5.4-mini', 'gpt-5-mini'], revisao: ['gpt-5.4', 'gpt-5.4-mini'] },
   anthropic: { titulos: ['claude-haiku-4-5', 'claude-sonnet-4-6'], revisao: ['claude-sonnet-5-5', 'claude-sonnet-4-6'] },
@@ -78,11 +78,19 @@ const exhaustedUntil = new Map<string, number>()
 
 type Model = ReturnType<typeof pickModels>[number]
 
-/** Tenta os modelos em ordem; erros de chave não passam para o próximo modelo. */
-async function withFallback<T>(all: Model[], call: (model: Model, maxRetries: number) => Promise<T>): Promise<T> {
-  const available = all.filter((m) => (exhaustedUntil.get(m.modelId) ?? 0) < Date.now())
+/**
+ * Tenta os modelos em ordem; erros de chave não passam para o próximo modelo.
+ * `pauseOnQuota` é falso para recursos com cota própria (como a busca), que não devem tirar o modelo do uso comum.
+ */
+async function withFallback<T>(
+  all: Model[],
+  call: (model: Model, maxRetries: number) => Promise<T>,
+  pauseOnQuota = true,
+): Promise<T> {
+  const available = all.filter((m) => !pauseOnQuota || (exhaustedUntil.get(m.modelId) ?? 0) < Date.now())
   const models = available.length > 0 ? available : all
   let lastKind: FailureKind | undefined
+  let quotaHit = false
   for (const [i, model] of models.entries()) {
     try {
       return await call(model, i === models.length - 1 ? 2 : 0)
@@ -90,10 +98,13 @@ async function withFallback<T>(all: Model[], call: (model: Model, maxRetries: nu
       lastKind = classify(error)
       console.error(`Falha no modelo ${model.modelId} (${lastKind})`, error)
       if (lastKind === 'chave') break
-      if (lastKind === 'cota') exhaustedUntil.set(model.modelId, Date.now() + QUOTA_PAUSE_MS)
+      if (lastKind === 'cota') {
+        quotaHit = true
+        if (pauseOnQuota) exhaustedUntil.set(model.modelId, Date.now() + QUOTA_PAUSE_MS)
+      }
     }
   }
-  throw friendlyFailure(lastKind)
+  throw friendlyFailure(lastKind !== 'chave' && quotaHit ? 'cota' : lastKind)
 }
 
 export async function generate(task: Task, system: string, prompt: string): Promise<string> {
@@ -128,7 +139,7 @@ export async function searchWeb(system: string, prompt: string): Promise<{ text:
       .filter((s) => s.sourceType === 'url')
       .map((s) => ({ url: s.url, title: s.title ?? '' }))
     return { text: result.text, sources }
-  })
+  }, false)
 }
 
 export const NO_KEY_MESSAGE = 'Os recursos de IA ainda não estão ativados: falta configurar a chave da IA na Vercel.'

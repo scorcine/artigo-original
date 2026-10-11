@@ -295,7 +295,9 @@ export function PlagiarismPanel(props: PanelProps) {
                   ? `${web.frasesPesquisadas} frases pesquisadas, ${web.paginasVerificadas} páginas conferidas.`
                   : web.status === 'erro'
                     ? 'A pesquisa na internet falhou desta vez. Tente de novo.'
-                    : 'Disponível só com a IA do Google (Gemini).'
+                    : web.status === 'sem_cota'
+                      ? 'A pesquisa no Google exige o plano pago da IA do Google (faturamento ativado no Google AI Studio). Enquanto isso, use o CopySpider abaixo.'
+                      : 'Disponível só com a IA do Google (Gemini).'
               }
             />
             <LevelCard
@@ -312,9 +314,9 @@ export function PlagiarismPanel(props: PanelProps) {
             />
           </div>
 
-          <h4>Trechos encontrados na internet</h4>
           {web.status === 'ok' && (
             <>
+              <h4>Trechos encontrados na internet</h4>
               <p className="help">{LEVEL_TEXT[web.nivel]}</p>
               {web.trechos.map((t, i) => (
                 <div key={i} className="analysis-item">
@@ -335,9 +337,9 @@ export function PlagiarismPanel(props: PanelProps) {
             </>
           )}
 
-          <h4>Trechos parecidos com os artigos citados</h4>
           {cited.status === 'ok' && (
             <>
+              <h4>Trechos parecidos com os artigos citados</h4>
               <p className="help">{LEVEL_TEXT[cited.nivel]}</p>
               {cited.trechos.map((t, i) => (
                 <div key={i} className="analysis-item">
