@@ -138,7 +138,7 @@ export default function App() {
           {step.id === 'tipo' && (
             <>
               <div className="notice">
-                O trabalho tem duas fases. Na <strong>Fase 1</strong> você prepara o cadastro e a submissão do projeto na
+                O trabalho tem duas fases. Na <strong>Fase 1</strong> você preenche os campos de submissão do projeto na
                 Plataforma Brasil, para aprovação do Comitê de Ética. Na <strong>Fase 2</strong> você escreve o artigo, e o
                 que já foi escrito na Fase 1 pode ser reaproveitado.
               </div>
