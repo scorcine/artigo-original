@@ -479,20 +479,19 @@ function TextAssist({
             Gerar com referências (PubMed)
           </button>
         )}
-        {canReview && (
-          <button type="button" className="suggest" onClick={() => run('revisar')} disabled={loading}>
-            Revisar com IA
-          </button>
-        )}
         {canGenerate && (
           <button
             type="button"
-            className="suggest"
+            className={`suggest${hasNotes ? ' strong' : ''}`}
             onClick={() => run('gerar')}
             disabled={loading}
-            title={hasNotes ? 'Usa o que você escreveu como base e escreve o texto completo' : undefined}
           >
             {hasNotes ? 'Desenvolver com IA' : 'Gerar com IA'}
+          </button>
+        )}
+        {canReview && (
+          <button type="button" className="suggest" onClick={() => run('revisar')} disabled={loading}>
+            Revisar com IA
           </button>
         )}
         {previous !== null && (
@@ -509,6 +508,11 @@ function TextAssist({
           </button>
         )}
       </div>
+      {canGenerate && canReview && !loading && !suggestion && (
+        <p className="help">
+          Desenvolver: escreve o texto completo a partir das suas ideias. Revisar: só melhora a redação do que já está escrito.
+        </p>
+      )}
       {loading && (
         <p className="help">
           {field.introRole
@@ -554,6 +558,11 @@ function TextAssist({
             <button type="button" onClick={accept}>
               {generating ? 'Usar este rascunho' : 'Usar texto revisado'}
             </button>
+            {suggestion.mode === 'revisar' && canGenerate && (
+              <button type="button" className="secondary" onClick={() => run('gerar')} disabled={loading}>
+                Desenvolver texto completo com IA
+              </button>
+            )}
             <button type="button" className="secondary" onClick={() => setSuggestion(null)}>
               Descartar
             </button>

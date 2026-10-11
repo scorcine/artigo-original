@@ -686,6 +686,11 @@ button.suggest {
   font-weight: 600;
 }
 
+button.suggest.strong {
+  background: var(--accent);
+  color: #fff;
+}
+
 .suggest-error {
   margin: 0.5rem 0 0;
   color: var(--danger);
