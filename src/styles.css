@@ -837,6 +837,82 @@ button.suggest.strong {
   font-weight: 600;
 }
 
+.analysis-item.problem {
+  border-left: 4px solid #c98a00;
+}
+
+.analysis-item.problem.resolved {
+  border-left-color: #2e7d32;
+}
+
+.problem-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.5rem;
+  margin: 0.4rem 0 0.6rem;
+}
+
+.problem-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.problem-option span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.problem-option.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent) inset;
+}
+
+.analysis-item.problem textarea {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.analysis-item .text-review-actions > button:not(.link) {
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.analysis-item .text-review-actions > button:disabled {
+  opacity: 0.5;
+}
+
+.problem-fix {
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--border);
+}
+
+.problem-change {
+  margin-bottom: 0.6rem;
+}
+
+.problem-change details {
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.problem-fix ul {
+  margin: 0 0 0.6rem;
+  padding-left: 1.1rem;
+}
+
 .analysis-applied {
   color: #2e7d32;
   font-weight: 600;

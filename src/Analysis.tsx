@@ -4,9 +4,12 @@ import type { Phase, StudyType, Values } from './data/types'
 import {
   analyzeQuality,
   checkPlagiarism,
+  fixProblem,
   type PlagiarismCheck,
+  type ProblemFix,
   type ProjectText,
   type QualityAnalysis,
+  type QualityProblem,
   type SimilarityLevel,
 } from './lib/ia'
 import { lines } from './lib/manuscript'
@@ -63,6 +66,16 @@ function readSaved<T>(raw: string | undefined): Saved<T> | null {
   }
 }
 
+function projectText(phase: Phase, type: StudyType | null, values: Values): ProjectText {
+  return {
+    fase: phase,
+    studyType: type?.name,
+    guideline: type?.guideline,
+    partes: projectParts(phase, type, values),
+    referencias: lines(values[phase === 1 ? 'pb_bibliografia' : 'fin_referencias'] ?? ''),
+  }
+}
+
 /** Busca, guarda no rascunho e devolve o último resultado salvo. */
 function useSavedRun<T>(storeId: string, { phase, type, values, onChange }: PanelProps, call: (r: ProjectText) => Promise<T>) {
   const [loading, setLoading] = useState(false)
@@ -72,13 +85,7 @@ function useSavedRun<T>(storeId: string, { phase, type, values, onChange }: Pane
     setLoading(true)
     setError('')
     try {
-      const result = await call({
-        fase: phase,
-        studyType: type?.name,
-        guideline: type?.guideline,
-        partes: parts,
-        referencias: lines(values[phase === 1 ? 'pb_bibliografia' : 'fin_referencias'] ?? ''),
-      })
+      const result = await call(projectText(phase, type, values))
       onChange(storeId, JSON.stringify({ ...result, data: new Date().toLocaleString('pt-BR') }))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível concluir agora.')
@@ -167,11 +174,180 @@ function PanelHeader({
 
 const scoreClass = (n: number) => (n >= 8 ? 'good' : n >= 6 ? 'fair' : 'poor')
 
+function ProblemCard({
+  problem,
+  titles,
+  request,
+  values,
+  onChange,
+  onResolved,
+}: {
+  problem: QualityProblem
+  titles: Map<string, string>
+  request: () => ProjectText
+  values: Values
+  onChange: (id: string, value: string) => void
+  onResolved: (choice: string | undefined) => void
+}) {
+  const [choice, setChoice] = useState<number | 'outra' | null>(null)
+  const [custom, setCustom] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [fix, setFix] = useState<ProblemFix | null>(null)
+  const [undo, setUndo] = useState<Record<string, string> | null>(null)
+
+  const chosen =
+    choice === 'outra'
+      ? custom.trim()
+      : choice !== null
+        ? `${problem.opcoes[choice].rotulo}. ${problem.opcoes[choice].efeito}`
+        : ''
+  const label = choice === 'outra' ? custom.trim() : choice !== null ? problem.opcoes[choice].rotulo : ''
+
+  const run = async () => {
+    setLoading(true)
+    setError('')
+    setFix(null)
+    try {
+      const { criterio, problema, campos } = problem
+      setFix(await fixProblem({ ...request(), problema: { criterio, problema, campos }, escolha: chosen }))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Não foi possível aplicar a correção agora.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const apply = () => {
+    if (!fix) return
+    const previous: Record<string, string> = {}
+    for (const c of fix.alteracoes) {
+      previous[c.campo] = values[c.campo] ?? ''
+      onChange(c.campo, c.texto)
+    }
+    setUndo(previous)
+    setFix(null)
+    onResolved(label)
+  }
+
+  const revert = () => {
+    if (!undo) return
+    for (const [campo, text] of Object.entries(undo)) onChange(campo, text)
+    setUndo(null)
+    onResolved(undefined)
+  }
+
+  return (
+    <div className={`analysis-item problem${problem.resolvido ? ' resolved' : ''}`}>
+      <p className="analysis-where">
+        {problem.criterio} · {problem.campos.map((c) => titles.get(c)?.split(' › ').pop() ?? c).join(', ')}
+      </p>
+      <p>{problem.problema}</p>
+
+      {problem.resolvido ? (
+        <p className="analysis-applied">
+          Corrigido: {problem.resolvido}.{' '}
+          {undo && (
+            <button type="button" className="link" onClick={revert}>
+              Desfazer
+            </button>
+          )}
+        </p>
+      ) : (
+        <>
+          <p className="review-heading">Como você quer corrigir?</p>
+          <div className="problem-options" role="radiogroup" aria-label="Forma de correção">
+            {problem.opcoes.map((o, i) => (
+              <button
+                key={o.rotulo}
+                type="button"
+                role="radio"
+                aria-checked={choice === i}
+                className={`problem-option${choice === i ? ' selected' : ''}`}
+                onClick={() => setChoice(i)}
+              >
+                <strong>{o.rotulo}</strong>
+                {o.efeito && <span>{o.efeito}</span>}
+              </button>
+            ))}
+            <button
+              type="button"
+              role="radio"
+              aria-checked={choice === 'outra'}
+              className={`problem-option${choice === 'outra' ? ' selected' : ''}`}
+              onClick={() => setChoice('outra')}
+            >
+              <strong>Outra forma</strong>
+              <span>Descreva como você quer corrigir.</span>
+            </button>
+          </div>
+          {choice === 'outra' && (
+            <textarea
+              rows={2}
+              value={custom}
+              placeholder="Ex.: manter a tirzepatida como variável de estratificação e tirar os agonistas de GLP-1 dos critérios de exclusão."
+              onChange={(e) => setCustom(e.target.value)}
+            />
+          )}
+          <div className="text-review-actions">
+            <button type="button" onClick={run} disabled={!chosen || loading}>
+              {loading ? 'Corrigindo…' : 'Corrigir automaticamente'}
+            </button>
+          </div>
+          {error && <p className="suggest-error">{error}</p>}
+        </>
+      )}
+
+      {fix && (
+        <div className="problem-fix">
+          {fix.resumo && <p>{fix.resumo}</p>}
+          {fix.alteracoes.map((c) => (
+            <div key={c.campo} className="problem-change">
+              <p className="analysis-where">{titles.get(c.campo) ?? c.campo}</p>
+              <details>
+                <summary>Ver texto atual</summary>
+                <p className="analysis-old">{values[c.campo]}</p>
+              </details>
+              <p className="analysis-new">{c.texto}</p>
+            </div>
+          ))}
+          {fix.pendencias.length > 0 && (
+            <>
+              <p className="review-heading">Você ainda precisa conferir</p>
+              <ul>
+                {fix.pendencias.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <div className="text-review-actions">
+            <button type="button" onClick={apply}>
+              Aplicar no texto
+            </button>
+            <button type="button" className="link" onClick={() => setFix(null)}>
+              Descartar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function QualityPanel(props: PanelProps) {
-  const { phase, values, onChange } = props
+  const { phase, type, values, onChange } = props
   const what = phase === 1 ? 'projeto' : 'artigo'
-  const { loading, error, parts, run, saved } = useSavedRun<QualityAnalysis>(`qualidade_fase${phase}`, props, analyzeQuality)
+  const storeId = `qualidade_fase${phase}`
+  const { loading, error, parts, run, saved } = useSavedRun<QualityAnalysis>(storeId, props, analyzeQuality)
   const titles = new Map(parts.map((p) => [p.id, p.titulo]))
+  const problems = saved?.problemas ?? []
+
+  const markResolved = (index: number, choice: string | undefined) => {
+    if (!saved) return
+    const problemas = problems.map((p, i) => (i === index ? { ...p, resolvido: choice } : p))
+    onChange(storeId, JSON.stringify({ ...saved, problemas }))
+  }
 
   return (
     <section className="analysis">
@@ -215,7 +391,28 @@ export function QualityPanel(props: PanelProps) {
               </ul>
             </>
           )}
-          <h4>Correções sugeridas ({saved.correcoes.length})</h4>
+          {problems.length > 0 && (
+            <>
+              <h4>Problemas para corrigir ({problems.filter((p) => !p.resolvido).length})</h4>
+              <p className="help">
+                Escolha como quer corrigir cada um. A IA reescreve os campos envolvidos e mostra o resultado antes de mudar
+                qualquer coisa.
+              </p>
+              {problems.map((p, i) => (
+                <ProblemCard
+                  key={`${i}-${p.problema}`}
+                  problem={p}
+                  titles={titles}
+                  request={() => projectText(phase, type, values)}
+                  values={values}
+                  onChange={onChange}
+                  onResolved={(choice) => markResolved(i, choice)}
+                />
+              ))}
+            </>
+          )}
+
+          <h4>Correções pontuais ({saved.correcoes.length})</h4>
           {saved.correcoes.length === 0 && <p className="help">Nenhuma correção importante encontrada.</p>}
           {saved.correcoes.map((c, i) => (
             <div key={i} className="analysis-item">

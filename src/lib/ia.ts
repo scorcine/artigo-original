@@ -130,11 +130,27 @@ export interface Correction {
   sugestao: string
 }
 
+export interface QualityProblem {
+  criterio: string
+  problema: string
+  campos: string[]
+  opcoes: { rotulo: string; efeito: string }[]
+  /** Forma de correção já aplicada pelo pesquisador. */
+  resolvido?: string
+}
+
 export interface QualityAnalysis {
   nota: number
   criterios: { nome: string; nota: number; comentario: string }[]
   pontosFortes: string[]
   correcoes: Correction[]
+  problemas?: QualityProblem[]
+}
+
+export interface ProblemFix {
+  resumo: string
+  alteracoes: { campo: string; texto: string }[]
+  pendencias: string[]
 }
 
 export type SimilarityLevel = 'baixo' | 'moderado' | 'alto'
@@ -172,6 +188,12 @@ export interface ProjectText {
 
 export function analyzeQuality(request: ProjectText): Promise<QualityAnalysis> {
   return post<QualityAnalysis>('/api/qualidade', request, 'Não foi possível analisar a qualidade do texto agora.')
+}
+
+export function fixProblem(
+  request: ProjectText & { problema: Omit<QualityProblem, 'opcoes' | 'resolvido'>; escolha: string },
+): Promise<ProblemFix> {
+  return post<ProblemFix>('/api/corrigir', request, 'Não foi possível aplicar a correção agora.')
 }
 
 export function checkPlagiarism(request: ProjectText): Promise<PlagiarismCheck> {
