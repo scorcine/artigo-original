@@ -5,7 +5,7 @@ import type { Field, Phase, StepId, StudyType, Values } from './data/types'
 import { buildManuscript, countWords, lines, toHtmlDocument, toMarkdown } from './lib/manuscript'
 import { SOURCES, buildProject, buildTcle } from './lib/phase1'
 import { emptyDraft, loadDraft, saveDraft, type Draft } from './lib/storage'
-import { suggestTitles, type TitleSuggestion } from './lib/titles'
+import { reviewText, suggestTitles, type Review, type TitleSuggestion } from './lib/ia'
 import { hasNewVersion } from './lib/updates'
 
 const UPDATE_CHECK_MS = 2 * 60 * 1000
@@ -181,7 +181,8 @@ export default function App() {
                   key={field.id}
                   field={field}
                   values={draft.values}
-                  studyTypeName={type?.name}
+                  type={type}
+                  stepTitle={step.title}
                   onChange={setValue}
                 />
               ))}
@@ -237,12 +238,14 @@ function TypePicker({ selected, onChoose }: { selected: string | null; onChoose:
 function FieldInput({
   field,
   values,
-  studyTypeName,
+  type,
+  stepTitle,
   onChange,
 }: {
   field: Field
   values: Values
-  studyTypeName: string | undefined
+  type: StudyType | null
+  stepTitle: string
   onChange: (id: string, value: string) => void
 }) {
   const inputId = `campo-${field.id}`
@@ -313,16 +316,124 @@ function FieldInput({
       ) : field.kind === 'text' ? (
         <input id={inputId} type="text" value={value} onChange={(e) => onChange(field.id, e.target.value)} />
       ) : (
-        <textarea id={inputId} rows={field.rows ?? 4} value={value} onChange={(e) => onChange(field.id, e.target.value)} />
+        <>
+          <textarea id={inputId} rows={field.rows ?? 4} value={value} onChange={(e) => onChange(field.id, e.target.value)} />
+          <TextReview field={field} value={value} type={type} stepTitle={stepTitle} onChange={onChange} />
+        </>
       )}
       {field.suggestTitle && (
         <TitleSuggestions
           kind={field.suggestTitle}
           draft={value}
           values={values}
-          studyTypeName={studyTypeName}
+          studyTypeName={type?.name}
           onUse={(title) => onChange(field.id, title)}
         />
+      )}
+    </div>
+  )
+}
+
+const MIN_REVIEW_CHARS = 40
+
+function TextReview({
+  field,
+  value,
+  type,
+  stepTitle,
+  onChange,
+}: {
+  field: Field
+  value: string
+  type: StudyType | null
+  stepTitle: string
+  onChange: (id: string, value: string) => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [review, setReview] = useState<Review | null>(null)
+  const [previous, setPrevious] = useState<string | null>(null)
+
+  if (value.trim().length < MIN_REVIEW_CHARS && !review && previous === null) return null
+
+  const run = async () => {
+    setLoading(true)
+    setError('')
+    setPrevious(null)
+    try {
+      setReview(
+        await reviewText({
+          text: value,
+          field: field.label,
+          help: field.help,
+          step: stepTitle,
+          studyType: type?.name,
+          guideline: type?.guideline,
+          plainLanguage: field.id.startsWith('tcle_'),
+        }),
+      )
+    } catch (e) {
+      setReview(null)
+      setError(e instanceof Error ? e.message : 'Não foi possível revisar o texto agora.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const accept = () => {
+    if (!review) return
+    setPrevious(value)
+    onChange(field.id, review.revisado)
+    setReview(null)
+  }
+
+  return (
+    <div className="text-review">
+      <div className="text-review-actions">
+        <button type="button" className="suggest" onClick={run} disabled={loading || value.trim().length < MIN_REVIEW_CHARS}>
+          {loading ? 'Revisando…' : 'Revisar com IA'}
+        </button>
+        {previous !== null && (
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              onChange(field.id, previous)
+              setPrevious(null)
+            }}
+          >
+            Desfazer revisão
+          </button>
+        )}
+      </div>
+      {error && <p className="suggest-error">{error}</p>}
+      {review && (
+        <div className="review-box">
+          <p className="review-heading">Texto revisado</p>
+          <p className="review-text">{review.revisado}</p>
+          {review.observacoes.length > 0 && (
+            <>
+              <p className="review-heading">O que pode faltar</p>
+              <ul>
+                {review.observacoes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <p className="help">
+            Confira se o sentido foi mantido. A IA não deve acrescentar dados nem referências: se aparecer algo que você
+            não escreveu, não use.
+          </p>
+          <div className="text-review-actions">
+            <button type="button" onClick={accept}>
+              Usar texto revisado
+            </button>
+            <button type="button" className="secondary" onClick={() => setReview(null)}>
+              Descartar
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
