@@ -79,6 +79,19 @@ a {
   font-size: 0.9rem;
 }
 
+.topbar-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+
+.version {
+  color: var(--muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
 .type-badge {
   padding: 0.35rem 0.8rem;
   border-radius: 999px;

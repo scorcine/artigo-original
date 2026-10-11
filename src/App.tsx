@@ -88,7 +88,10 @@ export default function App() {
             neste navegador.
           </p>
         </div>
-        {type && <span className="type-badge">{type.name}</span>}
+        <div className="topbar-side">
+          {type && <span className="type-badge">{type.name}</span>}
+          <span className="version">Versão de {__BUILD_TIME__}</span>
+        </div>
       </header>
 
       <div className="layout">
