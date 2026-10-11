@@ -1,4 +1,5 @@
-import type { Values } from '../data/types'
+import { STEPS, visibleFields } from '../data/steps'
+import type { StudyType, Values } from '../data/types'
 
 export interface TitleSuggestion {
   titulo: string
@@ -52,14 +53,44 @@ export async function suggestTitles(
   return data.sugestoes
 }
 
-export function reviewText(request: {
-  text: string
+interface FieldRequest {
   field: string
   help: string
   step: string
   studyType?: string
   guideline?: string
   plainLanguage: boolean
-}): Promise<Review> {
+}
+
+export function reviewText(request: FieldRequest & { text: string }): Promise<Review> {
   return post<Review>('/api/revisar', request, 'Não foi possível revisar o texto agora.')
+}
+
+export interface GeneratedDraft {
+  texto: string
+  pendencias: string[]
+}
+
+export function draftText(request: FieldRequest & { example?: string; context: string }): Promise<GeneratedDraft> {
+  return post<GeneratedDraft>('/api/gerar', request, 'Não foi possível gerar o rascunho agora.')
+}
+
+const MAX_CONTEXT_FIELD = 1500
+const MAX_CONTEXT = 15000
+
+/** Tudo o que o pesquisador já preencheu, para a IA escrever com base no estudo real. */
+export function studyContext(values: Values, type: StudyType | null, exceptId: string): string {
+  const parts: string[] = []
+  let size = 0
+  for (const step of STEPS) {
+    for (const field of visibleFields(step.id, type, values)) {
+      const value = (values[field.id] ?? '').trim()
+      if (field.id === exceptId || !value || field.kind === 'check') continue
+      const part = `${field.label}: ${value.slice(0, MAX_CONTEXT_FIELD)}`
+      if (size + part.length > MAX_CONTEXT) return parts.join('\n')
+      parts.push(part)
+      size += part.length
+    }
+  }
+  return parts.join('\n')
 }

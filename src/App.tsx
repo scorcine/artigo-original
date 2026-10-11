@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { STUDY_TYPES, getStudyType } from './data/studyTypes'
 import { PHASE_TITLES, STEPS, missingFields, stepProgress, visibleFields } from './data/steps'
-import type { Field, Phase, StepId, StudyType, Values } from './data/types'
+import type { Field, Phase, Step, StepId, StudyType, Values } from './data/types'
 import { buildManuscript, countWords, lines, toHtmlDocument, toMarkdown } from './lib/manuscript'
 import { SOURCES, buildProject, buildTcle } from './lib/phase1'
 import { emptyDraft, loadDraft, saveDraft, type Draft } from './lib/storage'
-import { reviewText, suggestTitles, type Review, type TitleSuggestion } from './lib/ia'
+import { draftText, reviewText, studyContext, suggestTitles, type TitleSuggestion } from './lib/ia'
 import { hasNewVersion } from './lib/updates'
 
 const UPDATE_CHECK_MS = 2 * 60 * 1000
@@ -182,7 +182,7 @@ export default function App() {
                   field={field}
                   values={draft.values}
                   type={type}
-                  stepTitle={step.title}
+                  step={step}
                   onChange={setValue}
                 />
               ))}
@@ -239,13 +239,13 @@ function FieldInput({
   field,
   values,
   type,
-  stepTitle,
+  step,
   onChange,
 }: {
   field: Field
   values: Values
   type: StudyType | null
-  stepTitle: string
+  step: Step
   onChange: (id: string, value: string) => void
 }) {
   const inputId = `campo-${field.id}`
@@ -318,7 +318,7 @@ function FieldInput({
       ) : (
         <>
           <textarea id={inputId} rows={field.rows ?? 4} value={value} onChange={(e) => onChange(field.id, e.target.value)} />
-          <TextReview field={field} value={value} type={type} stepTitle={stepTitle} onChange={onChange} />
+          <TextAssist field={field} value={value} values={values} type={type} step={step} onChange={onChange} />
         </>
       )}
       {field.suggestTitle && (
@@ -336,63 +336,100 @@ function FieldInput({
 
 const MIN_REVIEW_CHARS = 40
 
-function TextReview({
+/** Campos que dependem de dados reais (resultados, nomes, contatos, referências): a IA não escreve do zero. */
+const NO_GENERATE = new Set([
+  'pb_bibliografia',
+  'fin_referencias',
+  'tcle_contato_pesquisador',
+  'tcle_contato_cep',
+  'autores',
+  'afiliacoes',
+  'correspondente',
+  'fin_agradecimentos',
+  'fin_contribuicoes',
+])
+
+interface Suggestion {
+  mode: 'gerar' | 'revisar'
+  text: string
+  notes: string[]
+}
+
+function TextAssist({
   field,
   value,
+  values,
   type,
-  stepTitle,
+  step,
   onChange,
 }: {
   field: Field
   value: string
+  values: Values
   type: StudyType | null
-  stepTitle: string
+  step: Step
   onChange: (id: string, value: string) => void
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [review, setReview] = useState<Review | null>(null)
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null)
   const [previous, setPrevious] = useState<string | null>(null)
 
-  if (value.trim().length < MIN_REVIEW_CHARS && !review && previous === null) return null
+  const canReview = value.trim().length >= MIN_REVIEW_CHARS
+  const canGenerate = !canReview && step.id !== 'resultados' && !NO_GENERATE.has(field.id)
+  if (!canReview && !canGenerate && !suggestion && previous === null) return null
 
-  const run = async () => {
+  const run = async (mode: Suggestion['mode']) => {
     setLoading(true)
     setError('')
     setPrevious(null)
+    const request = {
+      field: field.label,
+      help: field.help,
+      step: step.title,
+      studyType: type?.name,
+      guideline: type?.guideline,
+      plainLanguage: field.id.startsWith('tcle_'),
+    }
     try {
-      setReview(
-        await reviewText({
-          text: value,
-          field: field.label,
-          help: field.help,
-          step: stepTitle,
-          studyType: type?.name,
-          guideline: type?.guideline,
-          plainLanguage: field.id.startsWith('tcle_'),
-        }),
-      )
+      if (mode === 'revisar') {
+        const review = await reviewText({ ...request, text: value })
+        setSuggestion({ mode, text: review.revisado, notes: review.observacoes })
+      } else {
+        const draft = await draftText({ ...request, example: field.example, context: studyContext(values, type, field.id) })
+        setSuggestion({ mode, text: draft.texto, notes: draft.pendencias })
+      }
     } catch (e) {
-      setReview(null)
-      setError(e instanceof Error ? e.message : 'Não foi possível revisar o texto agora.')
+      setSuggestion(null)
+      setError(e instanceof Error ? e.message : 'Não foi possível falar com a IA agora.')
     } finally {
       setLoading(false)
     }
   }
 
   const accept = () => {
-    if (!review) return
+    if (!suggestion) return
     setPrevious(value)
-    onChange(field.id, review.revisado)
-    setReview(null)
+    onChange(field.id, suggestion.text)
+    setSuggestion(null)
   }
+
+  const generating = suggestion?.mode === 'gerar'
 
   return (
     <div className="text-review">
       <div className="text-review-actions">
-        <button type="button" className="suggest" onClick={run} disabled={loading || value.trim().length < MIN_REVIEW_CHARS}>
-          {loading ? 'Revisando…' : 'Revisar com IA'}
-        </button>
+        {canReview ? (
+          <button type="button" className="suggest" onClick={() => run('revisar')} disabled={loading}>
+            {loading ? 'Revisando…' : 'Revisar com IA'}
+          </button>
+        ) : (
+          canGenerate && (
+            <button type="button" className="suggest" onClick={() => run('gerar')} disabled={loading}>
+              {loading ? 'Escrevendo rascunho…' : 'Gerar com IA'}
+            </button>
+          )
+        )}
         {previous !== null && (
           <button
             type="button"
@@ -402,34 +439,35 @@ function TextReview({
               setPrevious(null)
             }}
           >
-            Desfazer revisão
+            Desfazer
           </button>
         )}
       </div>
       {error && <p className="suggest-error">{error}</p>}
-      {review && (
+      {suggestion && (
         <div className="review-box">
-          <p className="review-heading">Texto revisado</p>
-          <p className="review-text">{review.revisado}</p>
-          {review.observacoes.length > 0 && (
+          <p className="review-heading">{generating ? 'Rascunho gerado' : 'Texto revisado'}</p>
+          <p className="review-text">{suggestion.text}</p>
+          {suggestion.notes.length > 0 && (
             <>
-              <p className="review-heading">O que pode faltar</p>
+              <p className="review-heading">{generating ? 'Você precisa completar ou decidir' : 'O que pode faltar'}</p>
               <ul>
-                {review.observacoes.map((note) => (
+                {suggestion.notes.map((note) => (
                   <li key={note}>{note}</li>
                 ))}
               </ul>
             </>
           )}
           <p className="help">
-            Confira se o sentido foi mantido. A IA não deve acrescentar dados nem referências: se aparecer algo que você
-            não escreveu, não use.
+            {generating
+              ? 'É um ponto de partida escrito com o que você já preencheu. Substitua cada [COMPLETAR: …] pela informação real do seu estudo e confira tudo antes de submeter.'
+              : 'Confira se o sentido foi mantido. A IA não deve acrescentar dados nem referências: se aparecer algo que você não escreveu, não use.'}
           </p>
           <div className="text-review-actions">
             <button type="button" onClick={accept}>
-              Usar texto revisado
+              {generating ? 'Usar este rascunho' : 'Usar texto revisado'}
             </button>
-            <button type="button" className="secondary" onClick={() => setReview(null)}>
+            <button type="button" className="secondary" onClick={() => setSuggestion(null)}>
               Descartar
             </button>
           </div>
