@@ -71,6 +71,18 @@ export async function searchIds(query: string, minYear: number, max: number): Pr
   return data.esearchresult?.idlist ?? []
 }
 
+/** PMIDs dos artigos com estes DOIs, numa única busca. */
+export async function idsForDois(dois: string[]): Promise<string[]> {
+  if (dois.length === 0) return []
+  const url = `${EUTILS}/esearch.fcgi?${params({
+    term: dois.map((d) => `"${d}"[doi]`).join(' OR '),
+    retmode: 'json',
+    retmax: String(dois.length),
+  })}`
+  const data = (await (await get(url)).json()) as { esearchresult?: { idlist?: string[] } }
+  return data.esearchresult?.idlist ?? []
+}
+
 function vancouver(s: Summary): string {
   const names = (s.authors ?? []).filter((a) => !a.authtype || a.authtype === 'Author').map((a) => a.name)
   const authors = names.length > 6 ? `${names.slice(0, 6).join(', ')}, et al` : names.join(', ')

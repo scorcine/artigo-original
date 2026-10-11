@@ -123,6 +123,47 @@ export function suggestSchedule(request: { studyType?: string; context: string }
   return post<ProposedSchedule>('/api/cronograma', request, 'Não foi possível montar o cronograma agora.')
 }
 
+export interface Correction {
+  campo: string
+  trecho: string
+  problema: string
+  sugestao: string
+}
+
+export interface SimilarPassage {
+  campo: string
+  trecho: string
+  fonte: string
+  tipo: string
+  sugestao: string
+}
+
+export interface Analysis {
+  qualidade: {
+    nota: number
+    criterios: { nome: string; nota: number; comentario: string }[]
+    pontosFortes: string[]
+    correcoes: Correction[]
+  }
+  similaridade: {
+    nivel: 'baixo' | 'moderado' | 'alto' | 'indisponivel' | 'erro'
+    percentual: number
+    fontesComparadas: number
+    referencias: number
+    trechos: SimilarPassage[]
+  }
+}
+
+export function analyzeProject(request: {
+  fase: 1 | 2
+  studyType?: string
+  guideline?: string
+  partes: { id: string; titulo: string; texto: string }[]
+  referencias: string[]
+}): Promise<Analysis> {
+  return post<Analysis>('/api/analise', request, 'Não foi possível analisar o projeto agora.')
+}
+
 const MAX_CONTEXT_FIELD = 1500
 const MAX_CONTEXT = 15000
 

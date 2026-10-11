@@ -9,6 +9,7 @@ import { draftIntroduction, draftText, reviewText, studyContext, suggestTitles, 
 import { hasNewVersion } from './lib/updates'
 import { SampleSizeCalculator } from './SampleSize'
 import { ScheduleTable } from './Schedule'
+import { ProjectAnalysis } from './Analysis'
 
 const UPDATE_CHECK_MS = 2 * 60 * 1000
 
@@ -194,6 +195,10 @@ export default function App() {
           {step.id === 'pb_envio' && <Phase1Review type={type} values={draft.values} onGoTo={goTo} />}
 
           {step.id === 'revisao' && <Review type={type} values={draft.values} onGoTo={goTo} onReset={reset} />}
+
+          {(step.id === 'pb_envio' || step.id === 'revisao') && (
+            <ProjectAnalysis phase={step.phase} type={type} values={draft.values} onChange={setValue} />
+          )}
 
           <div className="pager">
             <button
