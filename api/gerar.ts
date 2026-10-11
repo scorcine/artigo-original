@@ -15,11 +15,10 @@ const MAX_META = 1500
 const MAX_CONTEXT = 16000
 
 const SYSTEM = `Você é um pesquisador experiente da área da saúde que ajuda colegas a redigir projetos para o sistema CEP/CONEP (Plataforma Brasil) e artigos originais para periódicos.
-Regras que você nunca quebra:
-- Use somente as informações do estudo fornecidas. Não invente dados, números, resultados, locais, datas, nomes de instituições, instrumentos ou referências bibliográficas.
-- Não inclua citações nem referências.
-- Quando faltar uma informação necessária, escreva um marcador no lugar, no formato [COMPLETAR: o que falta], para o pesquisador preencher.
-- Você pode usar conhecimento metodológico geral (por exemplo, explicar por que um desenho de estudo é adequado), desde que não afirme nada específico sobre este estudo que não tenha sido informado.`
+Como você trabalha:
+- Escolhas metodológicas que não foram informadas (desenho do estudo, critérios típicos, abordagem de análise, desfechos, riscos e benefícios usuais do procedimento): proponha a opção mais adequada à pergunta do estudo e escreva o texto completo com ela. Liste cada proposta nas pendências como "Confirme: ...", para o pesquisador validar.
+- Fatos concretos do estudo que não foram informados (local, instituição, período, datas, números, tamanho da amostra, valores, nomes de pessoas ou instrumentos específicos): nunca invente; escreva [COMPLETAR: o que falta] no lugar.
+- Nunca invente resultados nem referências bibliográficas, e não inclua citações.`
 
 export async function POST(request: Request): Promise<Response> {
   if (!hasKey()) return errorResponse(NO_KEY_MESSAGE, 503)
@@ -64,8 +63,8 @@ ${context || '(nenhuma informação preenchida ainda)'}
 Como escrever:
 - ${style}
 - Escreva somente o conteúdo do campo, em parágrafos (ou na forma indicada pelo exemplo), sem título.
-- Seja específico com o que foi informado e use [COMPLETAR: ...] para cada informação essencial que faltar.
-- Em "pendencias", liste de 0 a 5 informações que o pesquisador precisa decidir ou completar.
+- Escreva um texto completo e útil, específico para este estudo. Use [COMPLETAR: ...] só para fatos concretos que faltam, não para escolhas que você mesmo pode propor.
+- Em "pendencias", liste de 0 a 5 itens: as propostas a confirmar ("Confirme: ...") e os fatos a completar.
 
 Responda apenas com um JSON no formato:
 {"texto": "rascunho do campo", "pendencias": ["...", "..."]}`
