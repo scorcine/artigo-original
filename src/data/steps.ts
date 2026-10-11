@@ -17,12 +17,6 @@ export const STEPS: Step[] = [
     intro: 'Escolha a variação do artigo original. Todas são pesquisas com seres humanos na área da saúde; a escolha define o que será pedido na submissão ao Comitê de Ética e nos Métodos e Resultados do artigo.',
   },
   {
-    id: 'pb_cadastro',
-    phase: 1,
-    title: 'Cadastro do pesquisador',
-    intro: 'Antes de submeter o projeto, cada pesquisador precisa de cadastro na Plataforma Brasil. Separe os itens abaixo e marque o que já tiver.',
-  },
-  {
     id: 'pb_preliminares',
     phase: 1,
     title: 'Informações preliminares',

@@ -7,46 +7,6 @@ export const PROPRIO = 'Recursos próprios'
 const dispensaTcle = (v: Values) => v.pb_dispensa_tcle === 'Sim'
 
 export const PB_FIELDS: Record<string, Field[]> = {
-  pb_cadastro: [
-    {
-      id: 'pb_chk_cpf',
-      kind: 'check',
-      label: 'CPF e um e-mail que você acessa com frequência',
-      help: 'O cadastro é pessoal. É por esse e-mail que chegam a senha e as notificações do Comitê de Ética.',
-    },
-    {
-      id: 'pb_chk_documento',
-      kind: 'check',
-      label: 'Documento de identidade com foto, digitalizado',
-      help: 'RG, CNH ou passaporte, frente e verso, em imagem ou PDF.',
-    },
-    {
-      id: 'pb_chk_foto',
-      kind: 'check',
-      label: 'Foto recente do rosto',
-      help: 'Arquivo de imagem, como uma foto para documento.',
-    },
-    {
-      id: 'pb_chk_lattes',
-      kind: 'check',
-      label: 'Currículo Lattes atualizado',
-      help: 'O endereço do currículo é pedido no cadastro.',
-    },
-    {
-      id: 'pb_chk_cadastro',
-      kind: 'check',
-      label: 'Cadastro feito e senha recebida por e-mail',
-      help: 'No site da Plataforma Brasil, use "Cadastre-se", preencha os dados pessoais e anexe os documentos.',
-    },
-    {
-      id: 'pb_chk_equipe',
-      kind: 'check',
-      optional: true,
-      label: 'Assistentes e equipe também cadastrados',
-      help: 'Quem for incluído no projeto como assistente ou membro da equipe precisa ter cadastro próprio antes da submissão.',
-    },
-  ],
-
   pb_preliminares: [
     {
       id: 'pb_pesquisador',
@@ -66,7 +26,7 @@ export const PB_FIELDS: Record<string, Field[]> = {
       label: 'Assistentes e equipe de pesquisa',
       optional: true,
       rows: 3,
-      help: 'Nome e função de cada membro, um por linha.',
+      help: 'Nome e função de cada membro, um por linha. Cada um também precisa estar cadastrado na Plataforma Brasil.',
     },
     {
       id: 'pb_coparticipante',

@@ -107,14 +107,13 @@ export default function App() {
 
           {step.phase === 1 && type?.ethicsNote && <div className="notice warning">{type.ethicsNote}</div>}
 
-          {step.id === 'pb_cadastro' && (
+          {step.id === 'pb_preliminares' && (
             <div className="notice">
-              O cadastro é feito no site da{' '}
+              Para submeter o projeto, o pesquisador precisa estar cadastrado na{' '}
               <a href="https://plataformabrasil.saude.gov.br/" target="_blank" rel="noreferrer">
                 Plataforma Brasil
               </a>
-              . Depois de entrar, o projeto é cadastrado em "Nova submissão"; as próximas etapas seguem a ordem das telas
-              da plataforma.
+              .
             </div>
           )}
 
