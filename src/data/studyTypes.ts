@@ -48,6 +48,7 @@ export const STUDY_TYPES: StudyType[] = [
         label: 'Tamanho da amostra',
         heading: 'Tamanho da amostra',
         help: 'Como o tamanho da amostra foi calculado: diferença esperada, variabilidade, poder, nível de significância e perdas previstas.',
+        sampleSize: true,
       },
       {
         id: 'ec_randomizacao',
@@ -126,6 +127,7 @@ export const STUDY_TYPES: StudyType[] = [
         label: 'Tamanho do estudo',
         heading: 'Tamanho do estudo',
         help: 'Como se chegou ao número de participantes: cálculo amostral ou população disponível.',
+        sampleSize: true,
       },
       analiseEstatistica,
     ],
@@ -185,6 +187,7 @@ export const STUDY_TYPES: StudyType[] = [
         label: 'Tamanho da amostra',
         heading: 'Tamanho da amostra',
         help: 'Como o número de participantes foi definido.',
+        sampleSize: true,
       },
       analiseEstatistica,
     ],

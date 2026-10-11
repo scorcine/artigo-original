@@ -1,5 +1,14 @@
+import {
+  alreadyListed,
+  CITATION,
+  citedIds,
+  findSources,
+  numberCitations,
+  parseJson,
+  sourceList as formatSources,
+  type Source,
+} from './_fontes.js'
 import { clip, errorResponse, failureResponse, generate, hasKey, isRateLimited, NO_KEY_MESSAGE } from './_ia.js'
-import { fetchSources, searchIds, type Source } from './_pubmed.js'
 
 type Role = 'completa' | 'contexto' | 'justificativa'
 
@@ -21,8 +30,6 @@ const RECENT_YEARS = 5
 const MAX_SOURCES = 30
 const MIN_SOURCES = 15
 const RESULTS_PER_QUERY = 15
-
-const CITATION = /\[S\d+(?:\s*[,;–-]\s*S?\d+)*\]/g
 
 const ROLE_GUIDE: Record<Role, string> = {
   completa: `Escreva a introdução completa do projeto, em 4 a 6 parágrafos, do geral para o específico:
@@ -50,20 +57,6 @@ function paragraphs(text: string): string[] {
     .split(/\n\s*\n|\n/)
     .map((p) => p.trim())
     .filter(Boolean)
-}
-
-function citedIds(marker: string): number[] {
-  const ids: number[] = []
-  for (const part of marker.slice(1, -1).split(/\s*[,;]\s*/)) {
-    const range = part.match(/S?(\d+)\s*[–-]\s*S?(\d+)/)
-    if (range) {
-      for (let n = Number(range[1]); n <= Number(range[2]) && n - Number(range[1]) < 20; n++) ids.push(n)
-    } else {
-      const single = part.match(/S?(\d+)/)
-      if (single) ids.push(Number(single[1]))
-    }
-  }
-  return ids
 }
 
 /** Confere as regras de formato e devolve a lista de problemas encontrados. */
@@ -99,100 +92,6 @@ function checkRules(text: string, sourceCount: number): string[] {
   return issues
 }
 
-function parseJson<T>(answer: string): T | null {
-  const json = answer.match(/\{[\s\S]*\}/)?.[0]
-  if (!json) return null
-  try {
-    return JSON.parse(json) as T
-  } catch {
-    return null
-  }
-}
-
-const alreadyListed = (source: Source, existingRefs: string[]) =>
-  existingRefs.some(
-    (line) =>
-      (source.doi && line.toLowerCase().includes(source.doi.toLowerCase())) ||
-      normalize(line).includes(normalize(source.title).slice(0, 60)),
-  )
-
-async function findSources(context: string): Promise<Source[]> {
-  const answer = await generate(
-    'titulos',
-    'Você é bibliotecário especialista em buscas no PubMed para pesquisas da área da saúde.',
-    `Com base no estudo abaixo, escreva 3 estratégias de busca para o PubMed, em inglês, usando termos MeSH e sinônimos com AND/OR.
-A primeira deve ser bem específica para o tema do estudo; a segunda, um pouco mais ampla; a terceira, ampla, sobre o problema de saúde principal.
-Não use filtros de data, idioma ou tipo de publicação.
-
-Estudo:
-"""
-${context}
-"""
-
-Responda apenas com um JSON: {"buscas": ["...", "...", "..."]}`,
-  )
-  const queries = (parseJson<{ buscas?: unknown }>(answer)?.buscas ?? []) as unknown[]
-  const valid = queries.filter((q): q is string => typeof q === 'string' && q.trim() !== '').slice(0, 3)
-  if (valid.length === 0) return []
-
-  const ids: string[] = []
-  const thisYear = new Date().getFullYear()
-  for (const minYear of [thisYear - RECENT_YEARS, thisYear - 2 * RECENT_YEARS]) {
-    for (const query of valid) {
-      if (ids.length >= MAX_SOURCES) break
-      for (const id of await searchIds(query, minYear, RESULTS_PER_QUERY)) {
-        if (!ids.includes(id) && ids.length < MAX_SOURCES) ids.push(id)
-      }
-    }
-    if (ids.length >= MIN_SOURCES) break
-  }
-  return fetchSources(ids)
-}
-
-function normalize(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, '')
-}
-
-/** Troca [S#] por números no estilo Vancouver, reaproveitando referências que já estão na lista do pesquisador. */
-function numberCitations(text: string, sources: Source[], existingRefs: string[]) {
-  const existing = existingRefs.map((line) => ({ line, number: Number(line.match(/^\s*(\d+)/)?.[1] ?? NaN) }))
-  let next = Math.max(0, ...existing.map((e) => (Number.isNaN(e.number) ? 0 : e.number))) + 1
-  const numberOf = new Map<number, number>()
-  const newRefs: string[] = []
-
-  const assign = (id: number): number | null => {
-    const source = sources[id - 1]
-    if (!source) return null
-    const known = numberOf.get(id)
-    if (known) return known
-    const match = existing.find(
-      (e) =>
-        !Number.isNaN(e.number) &&
-        ((source.doi && e.line.toLowerCase().includes(source.doi.toLowerCase())) ||
-          normalize(e.line).includes(normalize(source.title).slice(0, 60))),
-    )
-    const number = match ? match.number : next++
-    if (!match) newRefs.push(`${number}. ${source.reference}`)
-    numberOf.set(id, number)
-    return number
-  }
-
-  const formatted = text.replace(CITATION, (marker) => {
-    const numbers = [...new Set(citedIds(marker).map(assign).filter((n): n is number => n !== null))].sort((a, b) => a - b)
-    if (numbers.length === 0) return ''
-    const groups: string[] = []
-    for (let i = 0; i < numbers.length; i++) {
-      let j = i
-      while (j + 1 < numbers.length && numbers[j + 1] === numbers[j] + 1) j++
-      groups.push(j - i >= 2 ? `${numbers[i]}-${numbers[j]}` : numbers.slice(i, j + 1).join(','))
-      i = j
-    }
-    return `(${groups.join(',')})`
-  })
-
-  return { text: formatted.replace(/ +([.,;])/g, '$1'), newRefs }
-}
-
 export async function POST(request: Request): Promise<Response> {
   if (!hasKey()) return errorResponse(NO_KEY_MESSAGE, 503)
   if (isRateLimited(request, 20)) return errorResponse('Muitos pedidos seguidos. Tente de novo daqui a pouco.', 429)
@@ -223,7 +122,15 @@ export async function POST(request: Request): Promise<Response> {
 
   let sources: Source[]
   try {
-    sources = (await findSources(context)).filter((s) => !alreadyListed(s, existingRefs))
+    const found = await findSources(context, {
+      focus:
+        'A primeira deve ser bem específica para o tema do estudo; a segunda, um pouco mais ampla; a terceira, ampla, sobre o problema de saúde principal.',
+      maxSources: MAX_SOURCES,
+      minSources: MIN_SOURCES,
+      resultsPerQuery: RESULTS_PER_QUERY,
+      recentYears: RECENT_YEARS,
+    })
+    sources = found.filter((s) => !alreadyListed(s, existingRefs))
     console.log(`introducao: ${sources.length} fontes novas em ${elapsed()}`)
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('PubMed')) {
@@ -239,9 +146,7 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
-  const sourceList = sources
-    .map((s, i) => `[S${i + 1}] ${s.title} (${s.year})\nResumo: ${s.abstract}`)
-    .join('\n\n')
+  const sourceList = formatSources(sources)
 
   const rules = `Regras obrigatórias de formato:
 - Coloque uma citação [S#] no máximo a cada ${MAX_LINES_WITHOUT_CITATION} linhas (cerca de ${MAX_GAP_WORDS} palavras): na prática, cite ao final de cada frase com conteúdo científico. Várias fontes juntas: [S1,S4].

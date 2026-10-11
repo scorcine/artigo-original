@@ -7,6 +7,7 @@ import { SOURCES, buildProject, buildTcle } from './lib/phase1'
 import { emptyDraft, loadDraft, saveDraft, type Draft } from './lib/storage'
 import { draftIntroduction, draftText, reviewText, studyContext, suggestTitles, type TitleSuggestion } from './lib/ia'
 import { hasNewVersion } from './lib/updates'
+import { SampleSizeCalculator } from './SampleSize'
 
 const UPDATE_CHECK_MS = 2 * 60 * 1000
 
@@ -319,6 +320,15 @@ function FieldInput({
         <>
           <textarea id={inputId} rows={field.rows ?? 4} value={value} onChange={(e) => onChange(field.id, e.target.value)} />
           <TextAssist field={field} value={value} values={values} type={type} step={step} onChange={onChange} />
+          {field.sampleSize && (
+            <SampleSizeCalculator
+              field={field}
+              values={values}
+              type={type}
+              bibliographyId={bibliographyField(step)}
+              onChange={onChange}
+            />
+          )}
         </>
       )}
       {field.suggestTitle && (
@@ -385,7 +395,8 @@ function TextAssist({
   const [previous, setPrevious] = useState<Undo | null>(null)
 
   const canReview = value.trim().length >= MIN_REVIEW_CHARS
-  const canGenerate = !canReview && !field.introRole && step.id !== 'resultados' && !NO_GENERATE.has(field.id)
+  const canGenerate =
+    !canReview && !field.introRole && !field.sampleSize && step.id !== 'resultados' && !NO_GENERATE.has(field.id)
   if (!canReview && !canGenerate && !field.introRole && !suggestion && previous === null) return null
 
   const run = async (mode: Suggestion['mode']) => {

@@ -450,6 +450,106 @@ button.import {
   white-space: pre-line;
 }
 
+.sample-calc {
+  margin-top: 0.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.sample-calc.closed {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.sample-calc .choices {
+  margin-bottom: 0.75rem;
+}
+
+.choices.small .choice {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.88rem;
+}
+
+.calc-suggest {
+  margin-bottom: 0.5rem;
+}
+
+.calc-basis {
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  font-size: 0.92rem;
+}
+
+.calc-basis p {
+  margin: 0 0 0.5rem;
+}
+
+.calc-basis ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #8a5a00;
+}
+
+.calc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0.75rem 0;
+}
+
+.calc-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.calc-input .choices {
+  margin: 0;
+}
+
+.calc-value {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.calc-value input {
+  width: 100%;
+}
+
+.calc-suffix {
+  flex: none;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.calc-result {
+  margin: 0.5rem 0;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  background: #eaf1f7;
+}
+
+.calc-result p {
+  margin: 0 0 0.6rem;
+}
+
+.calc-result .text-review-actions button:not(.link) {
+  padding: 0.45rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
 .review-refs {
   margin: 0 0 1rem;
   padding-left: 0;

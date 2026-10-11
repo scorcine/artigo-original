@@ -92,6 +92,21 @@ export function draftIntroduction(request: {
   return post<Introduction>('/api/introducao', request, 'Não foi possível escrever a introdução agora.')
 }
 
+export interface SampleParameters {
+  valores: Record<string, number | string>
+  base: string
+  referencias: string[]
+  avisos: string[]
+}
+
+export function suggestSampleParameters(request: {
+  kind: string
+  context: string
+  existingRefs: string[]
+}): Promise<SampleParameters> {
+  return post<SampleParameters>('/api/parametros', request, 'Não foi possível buscar os valores na literatura agora.')
+}
+
 const MAX_CONTEXT_FIELD = 1500
 const MAX_CONTEXT = 15000
 

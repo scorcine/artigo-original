@@ -22,6 +22,8 @@ export interface Field {
   suggestTitle?: 'cientifico' | 'publico'
   /** Gera o texto com referências reais do PubMed e regras de citação da introdução. */
   introRole?: 'completa' | 'contexto' | 'justificativa'
+  /** Mostra a calculadora de tamanho amostral abaixo do campo. */
+  sampleSize?: boolean
 }
 
 export type Phase = 1 | 2

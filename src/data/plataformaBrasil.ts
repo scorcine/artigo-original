@@ -182,6 +182,7 @@ export const PB_FIELDS: Record<string, Field[]> = {
       label: 'Tamanho da amostra',
       rows: 2,
       help: 'Quantos participantes serão incluídos no Brasil e como esse número foi definido.',
+      sampleSize: true,
     },
   ],
 
