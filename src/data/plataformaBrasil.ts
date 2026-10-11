@@ -7,42 +7,6 @@ export const PROPRIO = 'Recursos próprios'
 const dispensaTcle = (v: Values) => v.pb_dispensa_tcle === 'Sim'
 
 export const PB_FIELDS: Record<string, Field[]> = {
-  pb_preliminares: [
-    {
-      id: 'pb_pesquisador',
-      label: 'Pesquisador responsável',
-      rows: 2,
-      help: 'Nome completo, titulação e vínculo. É quem conduz o estudo e responde por ele perante o CEP.',
-      example: 'Ana Souza, doutora em Ciências da Saúde, professora do Departamento de Fisioterapia da Universidade Federal X.',
-    },
-    {
-      id: 'pb_instituicao',
-      label: 'Instituição proponente',
-      kind: 'text',
-      help: 'A instituição à qual o pesquisador responsável está vinculado e que assina a folha de rosto.',
-    },
-    {
-      id: 'pb_equipe',
-      label: 'Assistentes e equipe de pesquisa',
-      optional: true,
-      rows: 3,
-      help: 'Nome e função de cada membro, um por linha. Cada um também precisa estar cadastrado na Plataforma Brasil.',
-    },
-    {
-      id: 'pb_coparticipante',
-      label: 'Instituições coparticipantes',
-      optional: true,
-      rows: 2,
-      help: 'Locais onde a coleta vai acontecer, se forem diferentes da instituição proponente. Cada uma precisa assinar uma declaração de anuência.',
-    },
-    {
-      id: 'pb_contato_publico',
-      label: 'Contato público',
-      rows: 2,
-      help: 'Pessoa, e-mail e telefone para dúvidas do público sobre o estudo.',
-    },
-  ],
-
   pb_area: [
     {
       id: 'pb_titulo_publico',
@@ -325,7 +289,8 @@ export const PB_FIELDS: Record<string, Field[]> = {
       id: 'tcle_contato_pesquisador',
       label: 'Contato do pesquisador',
       rows: 2,
-      help: 'Nome, endereço, telefone e e-mail do pesquisador responsável.',
+      help: 'Nome do pesquisador responsável na primeira linha; depois, endereço, telefone e e-mail.',
+      example: 'Ana Souza\nRua X, 100, Cidade, UF\n(00) 0000-0000 · ana.souza@universidade.br',
       showIf: (v) => !dispensaTcle(v),
     },
     {
@@ -374,8 +339,8 @@ export const PB_FIELDS: Record<string, Field[]> = {
       id: 'pb_doc_anuencia',
       kind: 'check',
       label: 'Declaração de anuência das instituições coparticipantes',
-      help: 'Assinada pelo responsável de cada local onde haverá coleta.',
-      showIf: (v) => !!v.pb_coparticipante?.trim(),
+      optional: true,
+      help: 'Só se a coleta acontecer em outra instituição além da sua. Assinada pelo responsável de cada local.',
     },
     {
       id: 'pb_doc_tcud',

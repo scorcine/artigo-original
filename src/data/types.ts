@@ -24,7 +24,6 @@ export type Phase = 0 | 1 | 2
 
 export type StepId =
   | 'tipo'
-  | 'pb_preliminares'
   | 'pb_area'
   | 'pb_desenho'
   | 'pb_detalhamento'

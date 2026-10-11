@@ -102,13 +102,7 @@ function labeled(v: Values, items: [string, string][]): Block[] {
 
 export function buildProject(type: StudyType | null, v: Values) {
   const title = get(v, 'pb_titulo') || 'Projeto de pesquisa'
-  const front = labeled(v, [
-    ['Título público', 'pb_titulo_publico'],
-    ['Pesquisador responsável', 'pb_pesquisador'],
-    ['Instituição proponente', 'pb_instituicao'],
-    ['Equipe de pesquisa', 'pb_equipe'],
-    ['Instituições coparticipantes', 'pb_coparticipante'],
-  ])
+  const front = labeled(v, [['Título público', 'pb_titulo_publico']])
 
   const resolucoes =
     type?.id === 'qualitativo' ? 'nas Resoluções CNS 466/2012 e 510/2016' : 'na Resolução CNS 466/2012'
@@ -181,14 +175,14 @@ const placeholder = (what: string) => `[preencher: ${what}]`
 export function buildTcle(v: Values): string {
   const val = (id: string, what: string) => get(v, id) || SOURCES[id]?.get(v) || placeholder(what)
   const title = 'Termo de Consentimento Livre e Esclarecido'
-  const pesquisador = get(v, 'pb_pesquisador').split('\n')[0] || placeholder('pesquisador responsável')
+  const pesquisador = get(v, 'tcle_contato_pesquisador').split('\n')[0] || placeholder('pesquisador responsável')
 
   const sections: Section[] = [
     {
       title: 'Convite',
       blocks: [
         {
-          text: `Você está sendo convidado(a) a participar da pesquisa "${val('pb_titulo', 'título do projeto')}", sob a responsabilidade de ${pesquisador}, da instituição ${val('pb_instituicao', 'instituição proponente')}. Leia este termo com calma e pergunte o que não entender antes de decidir.`,
+          text: `Você está sendo convidado(a) a participar da pesquisa "${val('pb_titulo', 'título do projeto')}", sob a responsabilidade de ${pesquisador}. Leia este termo com calma e pergunte o que não entender antes de decidir.`,
         },
       ],
     },

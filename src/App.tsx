@@ -148,7 +148,7 @@ export default function App() {
 
           {step.phase === 1 && type?.ethicsNote && <div className="notice warning">{type.ethicsNote}</div>}
 
-          {step.id === 'pb_preliminares' && (
+          {step.id === 'pb_area' && (
             <div className="notice">
               Para submeter o projeto, o pesquisador precisa estar cadastrado na{' '}
               <a href="https://plataformabrasil.saude.gov.br/" target="_blank" rel="noreferrer">
