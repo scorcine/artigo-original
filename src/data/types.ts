@@ -18,11 +18,14 @@ export interface Field {
   /** Vai para a seção "Tabelas e figuras", no fim do manuscrito. */
   atEnd?: boolean
   showIf?: (values: Values) => boolean
+  /** Mostra o botão de sugestões de título com IA. */
+  suggestTitle?: 'cientifico' | 'publico'
 }
 
 export type Phase = 1 | 2
 
 export type StepId =
+  | 'tipo'
   | 'pb_area'
   | 'pb_desenho'
   | 'pb_detalhamento'

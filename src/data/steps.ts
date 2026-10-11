@@ -10,6 +10,12 @@ export const PHASE_TITLES: Record<Phase, string> = {
 
 export const STEPS: Step[] = [
   {
+    id: 'tipo',
+    phase: 1,
+    title: 'Tipo de estudo',
+    intro: 'Escolha o tipo de estudo. Todas as opções são pesquisas com seres humanos na área da saúde; a escolha orienta os campos da Plataforma Brasil e, na Fase 2, os Métodos e Resultados do artigo.',
+  },
+  {
     id: 'pb_area',
     phase: 1,
     title: 'Área de estudo',
@@ -19,7 +25,7 @@ export const STEPS: Step[] = [
     id: 'pb_desenho',
     phase: 1,
     title: 'Desenho e financiamento',
-    intro: 'O tipo de estudo, o desenho e quem vai pagar as despesas.',
+    intro: 'O desenho do estudo e quem vai pagar as despesas.',
   },
   {
     id: 'pb_detalhamento',
@@ -107,6 +113,7 @@ const identificacao: Field[] = [
     label: 'Título',
     kind: 'text',
     help: 'Diga o que foi estudado, em quem e com qual desenho. Evite abreviações.',
+    suggestTitle: 'cientifico',
     example: 'Efeito do treinamento resistido sobre a força muscular em idosos: ensaio clínico randomizado',
   },
   {

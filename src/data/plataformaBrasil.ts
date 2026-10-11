@@ -13,6 +13,7 @@ export const PB_FIELDS: Record<string, Field[]> = {
       label: 'Título público',
       kind: 'text',
       help: 'O título em linguagem simples, que qualquer pessoa entenda.',
+      suggestTitle: 'publico',
       example: 'Exercícios de força para melhorar a força muscular de idosos',
     },
     {
@@ -20,6 +21,7 @@ export const PB_FIELDS: Record<string, Field[]> = {
       label: 'Título principal',
       kind: 'text',
       help: 'O título científico do projeto. Ele será sugerido como título do artigo na Fase 2.',
+      suggestTitle: 'cientifico',
     },
     {
       id: 'pb_area_saude',

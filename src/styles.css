@@ -415,6 +415,66 @@ button.import {
   font-size: 0.85rem;
 }
 
+.title-suggestions {
+  margin-top: 0.6rem;
+}
+
+button.suggest {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.suggest-error {
+  margin: 0.5rem 0 0;
+  color: var(--danger);
+  font-size: 0.88rem;
+}
+
+.title-suggestions ul {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.title-suggestions li {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.suggest-title {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.title-suggestions li .help {
+  margin: 0.2rem 0 0;
+}
+
+.title-suggestions li button {
+  flex: none;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .phase-review {
   margin-top: 2rem;
   padding-top: 1.5rem;

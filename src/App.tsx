@@ -5,6 +5,7 @@ import type { Field, Phase, StepId, StudyType, Values } from './data/types'
 import { buildManuscript, countWords, lines, toHtmlDocument, toMarkdown } from './lib/manuscript'
 import { SOURCES, buildProject, buildTcle } from './lib/phase1'
 import { emptyDraft, loadDraft, saveDraft, type Draft } from './lib/storage'
+import { suggestTitles, type TitleSuggestion } from './lib/titles'
 import { hasNewVersion } from './lib/updates'
 
 const UPDATE_CHECK_MS = 2 * 60 * 1000
@@ -70,7 +71,7 @@ export default function App() {
   const next = STEPS[stepIndex + 1]
   const nextLabel =
     next && next.phase !== step.phase ? `Ir para a ${PHASE_TITLES[next.phase].split(' · ')[0]}` : 'Avançar'
-  const showTypePicker = step.id === 'pb_desenho' || ((step.id === 'metodos' || step.id === 'resultados') && !type)
+  const showTypePicker = step.id === 'tipo' || ((step.id === 'metodos' || step.id === 'resultados') && !type)
 
   return (
     <div className="app">
@@ -136,11 +137,9 @@ export default function App() {
 
           {showTypePicker && (
             <div className="field">
-              <span className="field-label">Tipo de estudo</span>
-              <p className="help">
-                Todas as opções são pesquisas com seres humanos na área da saúde. A escolha orienta o campo "Desenho do
-                estudo" e, na Fase 2, o que é pedido nos Métodos e Resultados do artigo.
-              </p>
+              {step.id !== 'tipo' && (
+                <p className="help">Escolha o tipo de estudo para ver os campos desta etapa.</p>
+              )}
               <TypePicker selected={draft.typeId} onChoose={chooseType} />
             </div>
           )}
@@ -178,7 +177,13 @@ export default function App() {
           {step.id !== 'revisao' && (
             <div className="fields">
               {visibleFields(step.id, type, draft.values).map((field) => (
-                <FieldInput key={field.id} field={field} values={draft.values} onChange={setValue} />
+                <FieldInput
+                  key={field.id}
+                  field={field}
+                  values={draft.values}
+                  studyTypeName={type?.name}
+                  onChange={setValue}
+                />
               ))}
             </div>
           )}
@@ -232,10 +237,12 @@ function TypePicker({ selected, onChoose }: { selected: string | null; onChoose:
 function FieldInput({
   field,
   values,
+  studyTypeName,
   onChange,
 }: {
   field: Field
   values: Values
+  studyTypeName: string | undefined
   onChange: (id: string, value: string) => void
 }) {
   const inputId = `campo-${field.id}`
@@ -307,6 +314,70 @@ function FieldInput({
         <input id={inputId} type="text" value={value} onChange={(e) => onChange(field.id, e.target.value)} />
       ) : (
         <textarea id={inputId} rows={field.rows ?? 4} value={value} onChange={(e) => onChange(field.id, e.target.value)} />
+      )}
+      {field.suggestTitle && (
+        <TitleSuggestions
+          kind={field.suggestTitle}
+          draft={value}
+          values={values}
+          studyTypeName={studyTypeName}
+          onUse={(title) => onChange(field.id, title)}
+        />
+      )}
+    </div>
+  )
+}
+
+function TitleSuggestions({
+  kind,
+  draft,
+  values,
+  studyTypeName,
+  onUse,
+}: {
+  kind: 'cientifico' | 'publico'
+  draft: string
+  values: Values
+  studyTypeName: string | undefined
+  onUse: (title: string) => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [suggestions, setSuggestions] = useState<TitleSuggestion[]>([])
+
+  const run = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      setSuggestions(await suggestTitles(kind, draft, values, studyTypeName))
+    } catch (e) {
+      setSuggestions([])
+      setError(e instanceof Error ? e.message : 'Não foi possível gerar sugestões agora.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="title-suggestions">
+      <button type="button" className="suggest" onClick={run} disabled={loading}>
+        {loading ? 'Gerando sugestões…' : suggestions.length ? 'Gerar outras sugestões' : 'Sugerir títulos melhores'}
+      </button>
+      {error && <p className="suggest-error">{error}</p>}
+      {suggestions.length > 0 && (
+        <ul>
+          {suggestions.map((s) => (
+            <li key={s.titulo}>
+              <div>
+                <p className="suggest-title">{s.titulo}</p>
+                {s.motivo && <p className="help">{s.motivo}</p>}
+              </div>
+              <button type="button" className="secondary" onClick={() => onUse(s.titulo)}>
+                Usar este título
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )

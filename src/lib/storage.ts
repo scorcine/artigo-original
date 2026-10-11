@@ -10,7 +10,7 @@ export interface Draft {
 }
 
 export function emptyDraft(): Draft {
-  return { typeId: null, values: {}, stepId: 'pb_area' }
+  return { typeId: null, values: {}, stepId: 'tipo' }
 }
 
 export function loadDraft(): Draft {
@@ -21,7 +21,7 @@ export function loadDraft(): Draft {
     return {
       typeId: typeof d.typeId === 'string' ? d.typeId : null,
       values: d.values && typeof d.values === 'object' ? d.values : {},
-      stepId: typeof d.stepId === 'string' ? d.stepId : 'pb_area',
+      stepId: typeof d.stepId === 'string' ? d.stepId : 'tipo',
     }
   } catch {
     return emptyDraft()
