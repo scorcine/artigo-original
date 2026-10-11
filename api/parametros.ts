@@ -148,7 +148,7 @@ Fontes (artigos reais do PubMed):
 ${sourceList(sources)}
 
 Em "base", escreva 1 a 2 frases em português científico explicando de onde vêm os valores, com os marcadores [S#] (por exemplo: "As proporções esperadas foram baseadas em estudos prévios que encontraram ... [S2,S5].").
-Em "aviso", diga em uma frase se os valores vêm de populações diferentes da do estudo ou se falta algum valor (ou deixe vazio).
+Em "aviso", diga em uma frase, sem marcadores [S#], se os valores vêm de populações diferentes da do estudo ou se falta algum valor (ou deixe vazio).
 
 Responda apenas com um JSON: {"valores": {${need.keys.map((k) => `"${k}": número ou null`).join(', ')}${kind === 'duas-proporcoes' ? ', "grupo1": "...", "grupo2": "..."' : ''}${kind === 'duas-medias' ? ', "unit": "..."' : ''}}, "base": "...", "aviso": "..."}`,
     )
@@ -167,7 +167,8 @@ Responda apenas com um JSON: {"valores": {${need.keys.map((k) => `"${k}": númer
     const cited = new Set((base.match(CITATION) ?? []).flatMap(citedIds))
     const citedAbstracts = [...cited].map((n) => sources[n - 1]?.abstract ?? '').join(' ')
     const notes: string[] = []
-    if (typeof parsed?.aviso === 'string' && parsed.aviso.trim()) notes.push(parsed.aviso.trim())
+    const aviso = typeof parsed?.aviso === 'string' ? parsed.aviso.replace(/\s*\[S[\d,\sS-]*\]/g, '').trim() : ''
+    if (aviso) notes.push(aviso)
     for (const key of need.keys) {
       const v = values[key]
       if (typeof v === 'number' && !appearsIn(v, citedAbstracts)) {
