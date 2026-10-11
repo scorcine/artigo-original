@@ -11,44 +11,6 @@ const analiseEstatistica: Field = {
 
 export const STUDY_TYPES: StudyType[] = [
   {
-    id: 'experimental',
-    name: 'Experimental / laboratorial',
-    description: 'Estudos in vitro, de bancada ou laboratoriais, com condições controladas pelo pesquisador.',
-    guideline: 'Sem diretriz única: descreva o suficiente para outro laboratório repetir o experimento',
-    designHint: 'Diga que se trata de um estudo experimental (in vitro, laboratorial ou de bancada) e qual comparação ele faz.',
-    methods: [
-      {
-        id: 'exp_amostras',
-        label: 'Material e amostras',
-        heading: 'Material e amostras',
-        help: 'Origem do material (linhagem celular, tecido, reagente, amostra ambiental), como foi preparado e quantas amostras e replicatas foram usadas.',
-      },
-      {
-        id: 'exp_grupos',
-        label: 'Grupos e condições experimentais',
-        heading: 'Grupos e condições experimentais',
-        help: 'Grupos controle e tratados, doses ou concentrações, tempo de exposição e como as amostras foram distribuídas entre os grupos.',
-      },
-      {
-        id: 'exp_procedimentos',
-        label: 'Procedimentos e equipamentos',
-        heading: 'Procedimentos',
-        help: 'Cada procedimento na ordem em que foi feito, com equipamentos (marca, modelo), reagentes (fabricante, lote quando relevante) e condições.',
-      },
-      {
-        id: 'exp_variaveis',
-        label: 'Variáveis medidas',
-        heading: 'Variáveis analisadas',
-        help: 'O que foi medido, com qual método e em que momento.',
-      },
-      analiseEstatistica,
-    ],
-    resultsBefore: [],
-    resultsAfter: [],
-    mainResultHint:
-      'Os resultados de cada comparação experimental, com média ou mediana, medida de dispersão, número de replicatas e valor de p. Não interprete aqui.',
-  },
-  {
     id: 'ensaio-clinico',
     name: 'Ensaio clínico',
     description: 'Participantes alocados pelo pesquisador para receber uma intervenção ou um controle.',
@@ -245,7 +207,7 @@ export const STUDY_TYPES: StudyType[] = [
     description: 'Investiga experiências, percepções e significados a partir de falas, observações ou documentos.',
     guideline: 'SRQR ou COREQ',
     ethicsNote:
-      'Pesquisas em Ciências Humanas e Sociais seguem também a Resolução CNS 510/2016, que admite outras formas de registro do consentimento além do termo escrito, como a gravação em áudio.',
+      'Pesquisas qualitativas em saúde que usam metodologias das Ciências Humanas e Sociais, comuns na saúde coletiva, seguem também a Resolução CNS 510/2016, que admite outras formas de registro do consentimento além do termo escrito, como a gravação em áudio.',
     designHint: 'Informe que é um estudo qualitativo e a pergunta que orienta a investigação.',
     methods: [
       {
@@ -348,132 +310,6 @@ export const STUDY_TYPES: StudyType[] = [
     mainResultHint:
       'Como os achados quantitativos e qualitativos se confirmam, se complementam ou divergem, e o que se conclui da combinação deles.',
     mainResultHeading: 'Integração dos resultados',
-  },
-  {
-    id: 'animal',
-    name: 'Pesquisa com animais',
-    description: 'Estudos experimentais in vivo com animais de laboratório.',
-    guideline: 'ARRIVE',
-    ethicsNote:
-      'Pesquisas com animais não são submetidas à Plataforma Brasil: elas são avaliadas pela Comissão de Ética no Uso de Animais (CEUA) da instituição. Você pode ir direto para a Fase 2.',
-    designHint: 'Informe que é um estudo experimental com animais, a unidade experimental e a comparação principal.',
-    methods: [
-      {
-        id: 'an_animais',
-        label: 'Animais',
-        heading: 'Animais',
-        help: 'Espécie, linhagem, sexo, idade, peso e origem dos animais.',
-      },
-      {
-        id: 'an_alojamento',
-        label: 'Alojamento e manejo',
-        heading: 'Alojamento e manejo',
-        help: 'Condições de alojamento (animais por caixa, temperatura, ciclo claro-escuro), dieta, água e enriquecimento ambiental.',
-      },
-      {
-        id: 'an_grupos',
-        label: 'Grupos experimentais e controles',
-        heading: 'Grupos experimentais',
-        help: 'Os grupos, o que cada um recebeu e o número de animais por grupo.',
-      },
-      {
-        id: 'an_amostra',
-        label: 'Tamanho da amostra',
-        heading: 'Tamanho da amostra',
-        help: 'Como o número de animais foi definido, com o cálculo quando houver.',
-      },
-      {
-        id: 'an_alocacao',
-        label: 'Alocação aleatória e cegamento',
-        heading: 'Alocação e cegamento',
-        help: 'Como os animais foram distribuídos entre os grupos e quem sabia a alocação em cada fase.',
-      },
-      {
-        id: 'an_procedimentos',
-        label: 'Procedimentos experimentais',
-        heading: 'Procedimentos experimentais',
-        help: 'O que foi feito com os animais, quando e onde, incluindo anestesia, analgesia e método de eutanásia.',
-      },
-      {
-        id: 'an_desfechos',
-        label: 'Desfechos',
-        heading: 'Desfechos',
-        help: 'O que foi medido, como e quando, indicando o desfecho primário.',
-      },
-      analiseEstatistica,
-    ],
-    resultsBefore: [
-      {
-        id: 'an_exclusoes',
-        label: 'Animais incluídos e excluídos',
-        heading: 'Animais analisados',
-        help: 'Número de animais analisados por grupo e, se algum foi excluído, quantos e por quê.',
-      },
-    ],
-    resultsAfter: [
-      {
-        id: 'an_adversos',
-        label: 'Eventos adversos',
-        heading: 'Eventos adversos',
-        help: 'Eventos adversos em cada grupo e o que foi feito. Se não houve, diga isso.',
-      },
-    ],
-    mainResultHint:
-      'Para cada desfecho, o resultado de cada grupo com medida de dispersão e a medida de efeito com intervalo de confiança.',
-  },
-  {
-    id: 'computacional',
-    name: 'Computacional / in silico',
-    description: 'Modelos, simulações, algoritmos ou análises de grandes bases de dados.',
-    guideline: 'TRIPOD para modelos preditivos; para os demais, boas práticas de reprodutibilidade',
-    ethicsNote:
-      'Estudos que usam apenas informações de acesso público ou bancos de dados agregados, sem possibilidade de identificar as pessoas, não são avaliados pelo sistema CEP/Conep (Resolução CNS 510/2016, art. 1º, parágrafo único). Se houver dados identificáveis, a submissão é necessária. Na dúvida, consulte o CEP da instituição.',
-    designHint:
-      'Informe o tipo de estudo (desenvolvimento de modelo, simulação, análise de dados secundários) e a pergunta computacional.',
-    methods: [
-      {
-        id: 'cp_dados',
-        label: 'Fontes de dados',
-        heading: 'Fontes de dados',
-        help: 'Bases usadas, versão, data de acesso, critérios de seleção e pré-processamento.',
-      },
-      {
-        id: 'cp_modelo',
-        label: 'Modelo ou algoritmo',
-        heading: 'Modelo',
-        help: 'O modelo, algoritmo ou simulação, seus parâmetros e por que foram escolhidos.',
-      },
-      {
-        id: 'cp_implementacao',
-        label: 'Implementação',
-        heading: 'Implementação',
-        help: 'Linguagem, bibliotecas e versões, e o hardware usado quando for relevante.',
-      },
-      {
-        id: 'cp_validacao',
-        label: 'Validação e métricas',
-        heading: 'Validação',
-        help: 'Como o desempenho foi avaliado: divisão treino/teste, validação cruzada, validação externa e métricas.',
-      },
-      {
-        id: 'cp_reprodutibilidade',
-        label: 'Disponibilidade de código e dados',
-        heading: 'Disponibilidade de código',
-        help: 'Onde o código e os dados podem ser acessados (repositório, DOI) ou por que não estão disponíveis.',
-      },
-      { ...analiseEstatistica, optional: true },
-    ],
-    resultsBefore: [],
-    resultsAfter: [
-      {
-        id: 'cp_comparacao',
-        label: 'Comparação com abordagens existentes',
-        heading: 'Comparação com outras abordagens',
-        help: 'Como o modelo se compara a métodos de referência ou já publicados, nas mesmas métricas.',
-        optional: true,
-      },
-    ],
-    mainResultHint: 'O desempenho do modelo ou o resultado da simulação, nas métricas definidas nos Métodos e com a incerteza.',
   },
   {
     id: 'comunicacao-breve',

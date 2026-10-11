@@ -45,7 +45,10 @@ export default function App() {
       <header className="topbar">
         <div>
           <h1>Artigo Original</h1>
-          <p>Do Comitê de Ética ao manuscrito, passo a passo. O rascunho fica salvo apenas neste navegador.</p>
+          <p>
+            Pesquisa com seres humanos na área da saúde, do Comitê de Ética ao manuscrito. O rascunho fica salvo apenas
+            neste navegador.
+          </p>
         </div>
         {type && <span className="type-badge">{type.name}</span>}
       </header>

@@ -14,7 +14,7 @@ export const STEPS: Step[] = [
     id: 'tipo',
     phase: 0,
     title: 'Tipo de estudo',
-    intro: 'Escolha a variação do artigo original. Ela define o que será pedido na submissão ao Comitê de Ética e nos Métodos e Resultados do artigo.',
+    intro: 'Escolha a variação do artigo original. Todas são pesquisas com seres humanos na área da saúde; a escolha define o que será pedido na submissão ao Comitê de Ética e nos Métodos e Resultados do artigo.',
   },
   {
     id: 'pb_cadastro',
@@ -248,7 +248,7 @@ const metodosFim: Field[] = [
     id: 'met_etica',
     label: 'Aspectos éticos',
     heading: 'Aspectos éticos',
-    help: 'Aprovação pelo Comitê de Ética em Pesquisa (CEP) ou pela Comissão de Ética no Uso de Animais (CEUA), número do parecer e forma de obtenção do consentimento. Se não se aplicar, explique por quê.',
+    help: 'Aprovação pelo Comitê de Ética em Pesquisa (CEP), número do CAAE e do parecer, e como o consentimento dos participantes foi obtido.',
     example:
       'O estudo foi aprovado pelo Comitê de Ética em Pesquisa da Universidade X (CAAE 00000000.0.0000.0000). Todos os participantes assinaram o Termo de Consentimento Livre e Esclarecido.',
   },
