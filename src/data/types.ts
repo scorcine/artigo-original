@@ -20,6 +20,8 @@ export interface Field {
   showIf?: (values: Values) => boolean
   /** Mostra o botão de sugestões de título com IA. */
   suggestTitle?: 'cientifico' | 'publico'
+  /** Gera o texto com referências reais do PubMed e regras de citação da introdução. */
+  introRole?: 'completa' | 'contexto' | 'justificativa'
 }
 
 export type Phase = 1 | 2

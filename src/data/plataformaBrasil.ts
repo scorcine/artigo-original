@@ -105,6 +105,7 @@ export const PB_FIELDS: Record<string, Field[]> = {
       label: 'Introdução',
       rows: 6,
       help: 'O que já se sabe, o que falta saber e por que o estudo é necessário, com referências.',
+      introRole: 'completa',
     },
     {
       id: 'pb_hipotese',

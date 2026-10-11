@@ -5,7 +5,7 @@ import type { Field, Phase, Step, StepId, StudyType, Values } from './data/types
 import { buildManuscript, countWords, lines, toHtmlDocument, toMarkdown } from './lib/manuscript'
 import { SOURCES, buildProject, buildTcle } from './lib/phase1'
 import { emptyDraft, loadDraft, saveDraft, type Draft } from './lib/storage'
-import { draftText, reviewText, studyContext, suggestTitles, type TitleSuggestion } from './lib/ia'
+import { draftIntroduction, draftText, reviewText, studyContext, suggestTitles, type TitleSuggestion } from './lib/ia'
 import { hasNewVersion } from './lib/updates'
 
 const UPDATE_CHECK_MS = 2 * 60 * 1000
@@ -350,10 +350,19 @@ const NO_GENERATE = new Set([
 ])
 
 interface Suggestion {
-  mode: 'gerar' | 'revisar'
+  mode: 'gerar' | 'revisar' | 'introducao'
   text: string
   notes: string[]
+  references?: string[]
+  sourceCount?: number
 }
+
+interface Undo {
+  text: string
+  bibliography?: { id: string; value: string }
+}
+
+const bibliographyField = (step: Step) => (step.phase === 1 ? 'pb_bibliografia' : 'fin_referencias')
 
 function TextAssist({
   field,
@@ -373,11 +382,11 @@ function TextAssist({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null)
-  const [previous, setPrevious] = useState<string | null>(null)
+  const [previous, setPrevious] = useState<Undo | null>(null)
 
   const canReview = value.trim().length >= MIN_REVIEW_CHARS
-  const canGenerate = !canReview && step.id !== 'resultados' && !NO_GENERATE.has(field.id)
-  if (!canReview && !canGenerate && !suggestion && previous === null) return null
+  const canGenerate = !canReview && !field.introRole && step.id !== 'resultados' && !NO_GENERATE.has(field.id)
+  if (!canReview && !canGenerate && !field.introRole && !suggestion && previous === null) return null
 
   const run = async (mode: Suggestion['mode']) => {
     setLoading(true)
@@ -395,6 +404,21 @@ function TextAssist({
       if (mode === 'revisar') {
         const review = await reviewText({ ...request, text: value })
         setSuggestion({ mode, text: review.revisado, notes: review.observacoes })
+      } else if (mode === 'introducao' && field.introRole) {
+        const intro = await draftIntroduction({
+          role: field.introRole,
+          field: field.label,
+          studyType: type?.name,
+          context: studyContext(values, type, field.id),
+          existingRefs: lines(values[bibliographyField(step)] ?? ''),
+        })
+        setSuggestion({
+          mode,
+          text: intro.texto,
+          notes: intro.pendencias,
+          references: intro.referencias,
+          sourceCount: intro.fontes,
+        })
       } else {
         const draft = await draftText({ ...request, example: field.example, context: studyContext(values, type, field.id) })
         setSuggestion({ mode, text: draft.texto, notes: draft.pendencias })
@@ -409,33 +433,49 @@ function TextAssist({
 
   const accept = () => {
     if (!suggestion) return
-    setPrevious(value)
+    if (suggestion.mode === 'introducao' && value.trim() && !window.confirm('Substituir o texto atual por esta introdução?')) {
+      return
+    }
+    const undo: Undo = { text: value }
+    if (suggestion.references?.length) {
+      const id = bibliographyField(step)
+      const current = values[id] ?? ''
+      undo.bibliography = { id, value: current }
+      const added = suggestion.references.join('\n')
+      onChange(id, current.trim() ? `${current.trimEnd()}\n${added}` : added)
+    }
+    setPrevious(undo)
     onChange(field.id, suggestion.text)
     setSuggestion(null)
   }
 
-  const generating = suggestion?.mode === 'gerar'
+  const generating = suggestion?.mode === 'gerar' || suggestion?.mode === 'introducao'
 
   return (
     <div className="text-review">
       <div className="text-review-actions">
-        {canReview ? (
-          <button type="button" className="suggest" onClick={() => run('revisar')} disabled={loading}>
-            {loading ? 'Revisando…' : 'Revisar com IA'}
+        {field.introRole && (
+          <button type="button" className="suggest" onClick={() => run('introducao')} disabled={loading}>
+            Gerar com referências (PubMed)
           </button>
-        ) : (
-          canGenerate && (
-            <button type="button" className="suggest" onClick={() => run('gerar')} disabled={loading}>
-              {loading ? 'Escrevendo rascunho…' : 'Gerar com IA'}
-            </button>
-          )
+        )}
+        {canReview && (
+          <button type="button" className="suggest" onClick={() => run('revisar')} disabled={loading}>
+            Revisar com IA
+          </button>
+        )}
+        {canGenerate && (
+          <button type="button" className="suggest" onClick={() => run('gerar')} disabled={loading}>
+            Gerar com IA
+          </button>
         )}
         {previous !== null && (
           <button
             type="button"
             className="link"
             onClick={() => {
-              onChange(field.id, previous)
+              onChange(field.id, previous.text)
+              if (previous.bibliography) onChange(previous.bibliography.id, previous.bibliography.value)
               setPrevious(null)
             }}
           >
@@ -443,11 +483,30 @@ function TextAssist({
           </button>
         )}
       </div>
+      {loading && (
+        <p className="help">
+          {field.introRole
+            ? 'Buscando artigos no PubMed e escrevendo… pode levar até 1 minuto.'
+            : 'A IA está trabalhando… alguns segundos.'}
+        </p>
+      )}
       {error && <p className="suggest-error">{error}</p>}
       {suggestion && (
         <div className="review-box">
           <p className="review-heading">{generating ? 'Rascunho gerado' : 'Texto revisado'}</p>
           <p className="review-text">{suggestion.text}</p>
+          {suggestion.references && suggestion.references.length > 0 && (
+            <>
+              <p className="review-heading">
+                Novas referências ({suggestion.references.length} de {suggestion.sourceCount} artigos encontrados no PubMed)
+              </p>
+              <ol className="review-refs">
+                {suggestion.references.map((ref) => (
+                  <li key={ref}>{ref}</li>
+                ))}
+              </ol>
+            </>
+          )}
           {suggestion.notes.length > 0 && (
             <>
               <p className="review-heading">{generating ? 'Você precisa completar ou decidir' : 'O que pode faltar'}</p>
@@ -459,9 +518,11 @@ function TextAssist({
             </>
           )}
           <p className="help">
-            {generating
-              ? 'É um ponto de partida escrito com o que você já preencheu. Substitua cada [COMPLETAR: …] pela informação real do seu estudo e confira tudo antes de submeter.'
-              : 'Confira se o sentido foi mantido. A IA não deve acrescentar dados nem referências: se aparecer algo que você não escreveu, não use.'}
+            {suggestion.mode === 'introducao'
+              ? `Ao usar, as referências vão para o campo "${step.phase === 1 ? 'Bibliografia' : 'Referências'}". Leia cada artigo citado para confirmar que ele sustenta a frase, e passe o texto final num verificador de plágio (como o CopySpider) antes de submeter.`
+              : generating
+                ? 'É um ponto de partida escrito com o que você já preencheu. Substitua cada [COMPLETAR: …] pela informação real do seu estudo e confira tudo antes de submeter.'
+                : 'Confira se o sentido foi mantido. A IA não deve acrescentar dados nem referências: se aparecer algo que você não escreveu, não use.'}
           </p>
           <div className="text-review-actions">
             <button type="button" onClick={accept}>

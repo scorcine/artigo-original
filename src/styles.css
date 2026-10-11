@@ -450,6 +450,18 @@ button.import {
   white-space: pre-line;
 }
 
+.review-refs {
+  margin: 0 0 1rem;
+  padding-left: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.review-refs li + li {
+  margin-top: 0.35rem;
+}
+
 .review-box ul {
   margin: 0 0 1rem;
   padding-left: 1.2rem;

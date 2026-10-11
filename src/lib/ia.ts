@@ -75,6 +75,23 @@ export function draftText(request: FieldRequest & { example?: string; context: s
   return post<GeneratedDraft>('/api/gerar', request, 'Não foi possível gerar o rascunho agora.')
 }
 
+export interface Introduction {
+  texto: string
+  referencias: string[]
+  pendencias: string[]
+  fontes: number
+}
+
+export function draftIntroduction(request: {
+  role: 'completa' | 'contexto' | 'justificativa'
+  field: string
+  studyType?: string
+  context: string
+  existingRefs: string[]
+}): Promise<Introduction> {
+  return post<Introduction>('/api/introducao', request, 'Não foi possível escrever a introdução agora.')
+}
+
 const MAX_CONTEXT_FIELD = 1500
 const MAX_CONTEXT = 15000
 

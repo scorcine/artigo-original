@@ -191,11 +191,13 @@ const introducao: Field[] = [
     label: 'Contexto',
     rows: 6,
     help: 'O que já se sabe sobre o tema e por que ele importa, com referências.',
+    introRole: 'contexto',
   },
   {
     id: 'intro_lacuna',
     label: 'Lacuna',
     help: 'O que ainda não se sabe ou não foi resolvido e que este estudo pretende responder.',
+    introRole: 'justificativa',
     example: 'Embora estudos anteriores tenham avaliado..., não há dados sobre... em...',
   },
   {
