@@ -5,11 +5,41 @@ import type { Field, Phase, StepId, StudyType, Values } from './data/types'
 import { buildManuscript, countWords, lines, toHtmlDocument, toMarkdown } from './lib/manuscript'
 import { SOURCES, buildProject, buildTcle } from './lib/phase1'
 import { emptyDraft, loadDraft, saveDraft, type Draft } from './lib/storage'
+import { hasNewVersion } from './lib/updates'
+
+const UPDATE_CHECK_MS = 2 * 60 * 1000
+
+function useNewVersion(): boolean {
+  const [available, setAvailable] = useState(false)
+
+  useEffect(() => {
+    const check = async () => {
+      if (await hasNewVersion()) {
+        if (document.visibilityState === 'visible') setAvailable(true)
+        else window.location.reload()
+      }
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        hasNewVersion().then((isNew) => isNew && window.location.reload())
+      }
+    }
+    const timer = window.setInterval(check, UPDATE_CHECK_MS)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [])
+
+  return available
+}
 
 const PHASES: Phase[] = [0, 1, 2]
 
 export default function App() {
   const [draft, setDraft] = useState<Draft>(loadDraft)
+  const newVersion = useNewVersion()
 
   useEffect(() => {
     saveDraft(draft)
@@ -42,6 +72,14 @@ export default function App() {
 
   return (
     <div className="app">
+      {newVersion && (
+        <div className="update-bar" role="status">
+          Há uma versão nova do site. Seu rascunho continua salvo.
+          <button type="button" onClick={() => window.location.reload()}>
+            Atualizar agora
+          </button>
+        </div>
+      )}
       <header className="topbar">
         <div>
           <h1>Artigo Original</h1>

@@ -36,6 +36,26 @@ a {
   color: var(--accent);
 }
 
+.update-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.92rem;
+}
+
+.update-bar button {
+  padding: 0.3rem 0.9rem;
+  border: 0;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .topbar {
   display: flex;
   align-items: center;
