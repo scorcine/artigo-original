@@ -477,6 +477,36 @@ button.import {
   margin-bottom: 0.5rem;
 }
 
+.calc-intro {
+  margin: 0 0 0.75rem;
+  font-size: 0.92rem;
+}
+
+.calc-suggest button.primary {
+  padding: 0.55rem 1.1rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.calc-step {
+  margin: 1.25rem 0 0.5rem;
+  font-weight: 700;
+}
+
+.calc-help {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+button.link.calc-link {
+  font-size: 0.88rem;
+}
+
 .calc-basis {
   margin: 0.5rem 0 0.75rem;
   padding: 0.7rem 0.9rem;

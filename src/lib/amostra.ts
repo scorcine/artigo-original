@@ -154,6 +154,9 @@ const num = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 2 
 const percent = (v: number) => `${num(v)}%`
 const int = (v: number) => v.toLocaleString('pt-BR')
 
+/** "no grupo controle", mas "no Grupo 1" quando o nome já começa com "grupo". */
+export const inGroup = (label: string) => (/^grupo\b/i.test(label) ? `no ${label}` : `no grupo ${label}`)
+
 /** Parágrafo pronto para o projeto/artigo, com os valores usados e o resultado. */
 export function describeSample(i: SampleInput, r: SampleResult, basis: string): string {
   const test = `nível de significância bicaudal de ${percent(i.alpha)} e poder estatístico de ${percent(i.power)}`
@@ -168,11 +171,11 @@ export function describeSample(i: SampleInput, r: SampleResult, basis: string): 
     const [g1, g2] = r.groups
     const method =
       i.kind === 'duas-proporcoes'
-        ? `para comparação de duas proporções independentes (método de Fleiss com correção de continuidade), considerando ${test}, ${allocation} e proporções esperadas do desfecho de ${percent(i.p1)} no grupo ${g1.label} e de ${percent(i.p2)} no grupo ${g2.label}`
+        ? `para comparação de duas proporções independentes (método de Fleiss com correção de continuidade), considerando ${test}, ${allocation} e proporções esperadas do desfecho de ${percent(i.p1)} ${inGroup(g1.label)} e de ${percent(i.p2)} ${inGroup(g2.label)}`
         : `para comparação de duas médias independentes, considerando ${test}, ${allocation}, diferença mínima clinicamente relevante de ${num(i.meanDiff)}${i.unit ? ` ${i.unit}` : ''} entre os grupos e desvio padrão de ${num(i.sd)}${i.unit ? ` ${i.unit}` : ''}`
-    const perGroup = g1.n === g2.n ? `${int(g1.n)} participantes por grupo` : `${int(g1.n)} participantes no grupo ${g1.label} e ${int(g2.n)} no grupo ${g2.label}`
+    const perGroup = g1.n === g2.n ? `${int(g1.n)} participantes por grupo` : `${int(g1.n)} participantes ${inGroup(g1.label)} e ${int(g2.n)} ${inGroup(g2.label)}`
     const finalGroups =
-      g1.final === g2.final ? `${int(g1.final)} participantes por grupo` : `${int(g1.final)} participantes no grupo ${g1.label} e ${int(g2.final)} no grupo ${g2.label}`
+      g1.final === g2.final ? `${int(g1.final)} participantes por grupo` : `${int(g1.final)} participantes ${inGroup(g1.label)} e ${int(g2.final)} ${inGroup(g2.label)}`
     const closing =
       i.losses > 0
         ? `Acrescentando ${percent(i.losses)} para possíveis perdas e recusas, a amostra final será de ${finalGroups}, totalizando ${int(r.totalFinal)} participantes.`

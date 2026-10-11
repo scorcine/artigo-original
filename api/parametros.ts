@@ -4,9 +4,36 @@ import { clip, errorResponse, failureResponse, generate, hasKey, isRateLimited, 
 type Kind = 'duas-proporcoes' | 'prevalencia' | 'duas-medias' | 'diagnostico'
 
 interface Body {
-  kind?: Kind
+  kind?: Kind | 'auto'
   context?: string
   existingRefs?: string[]
+}
+
+const KIND_GUIDE = `- "duas-proporcoes": compara a frequência de um desfecho sim/não entre dois grupos (por exemplo, % com complicação em diabéticos x não diabéticos, ou em tratamento x controle).
+- "prevalencia": estima a frequência de um desfecho sim/não em um único grupo, sem comparar grupos (por exemplo, % de pacientes com estômago cheio antes da cirurgia).
+- "duas-medias": compara um desfecho numérico entre dois grupos (por exemplo, pressão arterial média, volume gástrico em mL, escore de dor).
+- "diagnostico": avalia a sensibilidade e a especificidade de um teste diagnóstico em comparação com um padrão de referência.`
+
+/** A IA escolhe o tipo de cálculo a partir do objetivo e do desfecho principal do estudo. */
+async function chooseKind(context: string): Promise<{ kind: Kind; reason: string }> {
+  const answer = await generate(
+    'titulos',
+    'Você é bioestatístico da área da saúde.',
+    `Escolha o tipo de cálculo de tamanho amostral mais adequado ao objetivo primário e ao desfecho principal do estudo abaixo.
+
+Tipos possíveis:
+${KIND_GUIDE}
+
+Estudo:
+"""
+${context}
+"""
+
+Responda apenas com um JSON: {"tipo": "um dos tipos acima", "motivo": "uma frase simples, para um pesquisador iniciante, explicando a escolha"}`,
+  )
+  const parsed = parseJson<{ tipo?: unknown; motivo?: unknown }>(answer)
+  const kind = typeof parsed?.tipo === 'string' && parsed.tipo in NEEDS ? (parsed.tipo as Kind) : 'duas-proporcoes'
+  return { kind, reason: typeof parsed?.motivo === 'string' ? parsed.motivo.trim() : '' }
 }
 
 const NEEDS: Record<Kind, { focus: string; ask: string; keys: string[] }> = {
@@ -62,18 +89,23 @@ export async function POST(request: Request): Promise<Response> {
     return errorResponse('Pedido inválido.', 400)
   }
 
-  const kind: Kind = body.kind && body.kind in NEEDS ? body.kind : 'duas-proporcoes'
-  const need = NEEDS[kind]
   const context = clip(body.context, 12000)
   if (context.length < 40) {
     return errorResponse('Preencha antes o título, o objetivo e o desfecho do estudo, para a IA saber o que buscar.', 400)
   }
   const existingRefs = (Array.isArray(body.existingRefs) ? body.existingRefs : []).filter((l): l is string => typeof l === 'string')
 
+  let kind: Kind = body.kind && body.kind !== 'auto' && body.kind in NEEDS ? body.kind : 'duas-proporcoes'
+  let reason = ''
   let sources: Source[]
   try {
+    if (body.kind === 'auto') {
+      const choice = await chooseKind(context)
+      kind = choice.kind
+      reason = choice.reason
+    }
     sources = await findSources(context, {
-      focus: `${need.focus} A primeira busca deve ser bem específica; a segunda, um pouco mais ampla; a terceira, ampla.`,
+      focus: `${NEEDS[kind].focus} A primeira busca deve ser bem específica; a segunda, um pouco mais ampla; a terceira, ampla.`,
       maxSources: 15,
       minSources: 8,
       resultsPerQuery: 8,
@@ -87,8 +119,16 @@ export async function POST(request: Request): Promise<Response> {
     }
     return failureResponse(error)
   }
+  const need = NEEDS[kind]
+  const choice = { tipo: kind, motivo: reason }
   if (sources.length === 0) {
-    return errorResponse('Não encontrei artigos no PubMed com esses dados. Preencha os valores com base em um estudo piloto ou em artigos que você conheça.', 422)
+    return Response.json({
+      ...choice,
+      valores: {},
+      base: '',
+      referencias: [],
+      avisos: ['Não encontrei artigos no PubMed com esses dados. Preencha os valores com base em um estudo piloto ou em artigos que você conheça.'],
+    })
   }
 
   try {
@@ -137,11 +177,11 @@ Responda apenas com um JSON: {"valores": {${need.keys.map((k) => `"${k}": númer
     const complete = need.keys.every((k) => values[k] !== undefined)
     if (!complete) {
       notes.push('A literatura encontrada não trouxe todos os valores necessários: complete os que faltam com base em um estudo piloto ou em outro artigo.')
-      return Response.json({ valores: values, base: '', referencias: [], avisos: notes })
+      return Response.json({ ...choice, valores: values, base: '', referencias: [], avisos: notes })
     }
 
     const { text, newRefs } = numberCitations(base, sources, existingRefs)
-    return Response.json({ valores: values, base: text, referencias: newRefs, avisos: notes })
+    return Response.json({ ...choice, valores: values, base: text, referencias: newRefs, avisos: notes })
   } catch (error) {
     return failureResponse(error)
   }

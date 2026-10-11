@@ -93,6 +93,8 @@ export function draftIntroduction(request: {
 }
 
 export interface SampleParameters {
+  tipo: string
+  motivo: string
   valores: Record<string, number | string>
   base: string
   referencias: string[]
