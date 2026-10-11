@@ -24,10 +24,26 @@ interface Summary {
 
 const params = (extra: Record<string, string>) => new URLSearchParams({ db: 'pubmed', tool: 'artigo-original', ...extra })
 
+/** Sem chave própria, o PubMed aceita no máximo 3 pedidos por segundo. */
+const MIN_INTERVAL_MS = 400
+const RETRY_DELAYS_MS = [1000, 2500, 5000]
+let lastRequest = 0
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 async function get(url: string): Promise<Response> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
-  if (!response.ok) throw new Error(`PubMed respondeu ${response.status}`)
-  return response
+  for (let attempt = 0; ; attempt++) {
+    const wait = lastRequest + MIN_INTERVAL_MS - Date.now()
+    lastRequest = Math.max(Date.now(), lastRequest + MIN_INTERVAL_MS)
+    if (wait > 0) await sleep(wait)
+    const response = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
+    if (response.ok) return response
+    if ((response.status === 429 || response.status >= 500) && attempt < RETRY_DELAYS_MS.length) {
+      await sleep(RETRY_DELAYS_MS[attempt])
+      continue
+    }
+    throw new Error(`PubMed respondeu ${response.status}`)
+  }
 }
 
 const decode = (s: string) =>
@@ -71,11 +87,9 @@ function vancouver(s: Summary): string {
 export async function fetchSources(ids: string[]): Promise<Source[]> {
   if (ids.length === 0) return []
   const idList = ids.join(',')
-  const [summaryResponse, abstractResponse] = await Promise.all([
-    get(`${EUTILS}/esummary.fcgi?${params({ id: idList, retmode: 'json' })}`),
-    get(`${EUTILS}/efetch.fcgi?${params({ id: idList, retmode: 'xml', rettype: 'abstract' })}`),
-  ])
+  const summaryResponse = await get(`${EUTILS}/esummary.fcgi?${params({ id: idList, retmode: 'json' })}`)
   const summaries = ((await summaryResponse.json()) as { result?: Record<string, Summary> }).result ?? {}
+  const abstractResponse = await get(`${EUTILS}/efetch.fcgi?${params({ id: idList, retmode: 'xml', rettype: 'abstract' })}`)
   const xml = await abstractResponse.text()
 
   const abstracts = new Map<string, string>()

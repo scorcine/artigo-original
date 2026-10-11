@@ -201,9 +201,13 @@ export async function POST(request: Request): Promise<Response> {
     .filter((l): l is string => typeof l === 'string')
     .slice(0, 300)
 
+  const started = Date.now()
+  const elapsed = () => `${Math.round((Date.now() - started) / 1000)}s`
+
   let sources: Source[]
   try {
     sources = await findSources(context)
+    console.log(`introducao: ${sources.length} fontes em ${elapsed()}`)
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('PubMed')) {
       console.error(error)
@@ -251,6 +255,7 @@ Responda apenas com um JSON: {"texto": "introdução com os marcadores [S#]", "p
     if (!text) return errorResponse('A IA não retornou a introdução. Tente de novo.', 502)
 
     let issues = checkRules(text, sources.length)
+    console.log(`introducao: texto em ${elapsed()}, ${issues.length} problemas de regra`)
     if (issues.length > 0) {
       const fixed = parseJson<{ texto?: unknown }>(
         await generate(
@@ -281,6 +286,7 @@ Responda apenas com um JSON: {"texto": "texto corrigido com os marcadores [S#]"}
           issues = fixedIssues
         }
       }
+      console.log(`introducao: correção em ${elapsed()}, ${issues.length} problemas restantes`)
     }
 
     const { text: numbered, newRefs } = numberCitations(text, sources, existingRefs)
