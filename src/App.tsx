@@ -35,7 +35,7 @@ function useNewVersion(): boolean {
   return available
 }
 
-const PHASES: Phase[] = [0, 1, 2]
+const PHASES: Phase[] = [1, 2]
 
 export default function App() {
   const [draft, setDraft] = useState<Draft>(loadDraft)
@@ -47,7 +47,7 @@ export default function App() {
 
   const type = getStudyType(draft.typeId)
   const found = STEPS.findIndex((s) => s.id === draft.stepId)
-  const stepIndex = type && found >= 0 ? found : 0
+  const stepIndex = found >= 0 ? found : 0
   const step = STEPS[stepIndex]
   const phaseSteps = STEPS.filter((s) => s.phase === step.phase)
 
@@ -68,7 +68,9 @@ export default function App() {
   }
 
   const next = STEPS[stepIndex + 1]
-  const nextLabel = next && next.phase !== step.phase && step.phase !== 0 ? `Ir para a ${PHASE_TITLES[next.phase].split(' · ')[0]}` : 'Avançar'
+  const nextLabel =
+    next && next.phase !== step.phase ? `Ir para a ${PHASE_TITLES[next.phase].split(' · ')[0]}` : 'Avançar'
+  const showTypePicker = step.id === 'pb_desenho' || ((step.id === 'metodos' || step.id === 'resultados') && !type)
 
   return (
     <div className="app">
@@ -98,7 +100,7 @@ export default function App() {
         <nav className="steps" aria-label="Etapas">
           {PHASES.map((phase) => (
             <div key={phase} className="phase-group">
-              {phase !== 0 && <p className="phase-title">{PHASE_TITLES[phase]}</p>}
+              <p className="phase-title">{PHASE_TITLES[phase]}</p>
               <ol>
                 {STEPS.filter((s) => s.phase === phase).map((s) => {
                   const { done, total } = stepProgress(s.id, type, draft.values)
@@ -107,7 +109,6 @@ export default function App() {
                       <button
                         type="button"
                         className={s.id === step.id ? 'active' : ''}
-                        disabled={!type && s.id !== 'tipo'}
                         onClick={() => goTo(s.id)}
                       >
                         <span className={`step-dot${total > 0 && done === total ? ' complete' : ''}`} />
@@ -128,22 +129,20 @@ export default function App() {
 
         <main className="content">
           <p className="step-kicker">
-            {step.phase === 0
-              ? 'Comece por aqui'
-              : `${PHASE_TITLES[step.phase]} · Etapa ${phaseSteps.indexOf(step) + 1} de ${phaseSteps.length}`}
+            {PHASE_TITLES[step.phase]} · Etapa {phaseSteps.indexOf(step) + 1} de {phaseSteps.length}
           </p>
           <h2>{step.title}</h2>
           <p className="step-intro">{step.intro}</p>
 
-          {step.id === 'tipo' && (
-            <>
-              <div className="notice">
-                O trabalho tem duas fases. Na <strong>Fase 1</strong> você preenche os campos de submissão do projeto na
-                Plataforma Brasil, para aprovação do Comitê de Ética. Na <strong>Fase 2</strong> você escreve o artigo, e o
-                que já foi escrito na Fase 1 pode ser reaproveitado.
-              </div>
+          {showTypePicker && (
+            <div className="field">
+              <span className="field-label">Tipo de estudo</span>
+              <p className="help">
+                Todas as opções são pesquisas com seres humanos na área da saúde. A escolha orienta o campo "Desenho do
+                estudo" e, na Fase 2, o que é pedido nos Métodos e Resultados do artigo.
+              </p>
               <TypePicker selected={draft.typeId} onChoose={chooseType} />
-            </>
+            </div>
           )}
 
           {step.phase === 1 && type?.ethicsNote && <div className="notice warning">{type.ethicsNote}</div>}
@@ -176,7 +175,7 @@ export default function App() {
             </div>
           )}
 
-          {step.id !== 'tipo' && step.id !== 'revisao' && (
+          {step.id !== 'revisao' && (
             <div className="fields">
               {visibleFields(step.id, type, draft.values).map((field) => (
                 <FieldInput key={field.id} field={field} values={draft.values} onChange={setValue} />
@@ -198,7 +197,7 @@ export default function App() {
               Voltar
             </button>
             {next && (
-              <button type="button" disabled={!type} onClick={() => goTo(next.id)}>
+              <button type="button" onClick={() => goTo(next.id)}>
                 {nextLabel}
               </button>
             )}

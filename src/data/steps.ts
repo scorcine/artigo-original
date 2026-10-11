@@ -4,18 +4,11 @@ import type { Field, Phase, Step, StepId, StudyType, Values } from './types'
 export type { Step, StepId }
 
 export const PHASE_TITLES: Record<Phase, string> = {
-  0: 'Início',
   1: 'Fase 1 · Plataforma Brasil',
   2: 'Fase 2 · Artigo original',
 }
 
 export const STEPS: Step[] = [
-  {
-    id: 'tipo',
-    phase: 0,
-    title: 'Tipo de estudo',
-    intro: 'Escolha a variação do artigo original. Todas são pesquisas com seres humanos na área da saúde; a escolha define o que será pedido na submissão ao Comitê de Ética e nos Métodos e Resultados do artigo.',
-  },
   {
     id: 'pb_area',
     phase: 1,
@@ -26,7 +19,7 @@ export const STEPS: Step[] = [
     id: 'pb_desenho',
     phase: 1,
     title: 'Desenho e financiamento',
-    intro: 'O tipo de estudo e quem vai pagar as despesas.',
+    intro: 'O tipo de estudo, o desenho e quem vai pagar as despesas.',
   },
   {
     id: 'pb_detalhamento',

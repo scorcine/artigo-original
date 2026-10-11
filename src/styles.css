@@ -290,9 +290,14 @@ a {
   gap: 1.6rem;
 }
 
-.field label {
+.field label,
+.field-label {
   display: block;
   font-weight: 700;
+}
+
+.field + .fields {
+  margin-top: 1.6rem;
 }
 
 .optional {
