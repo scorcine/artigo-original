@@ -1,6 +1,6 @@
 const EUTILS = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
 const TIMEOUT_MS = 15000
-const MAX_ABSTRACT = 1400
+const MAX_ABSTRACT = 1000
 
 export interface Source {
   pmid: string

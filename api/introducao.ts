@@ -18,8 +18,9 @@ const MAX_PARAGRAPH_LINES = 10
 const MAX_GAP_WORDS = WORDS_PER_LINE * MAX_LINES_WITHOUT_CITATION
 const MAX_PARAGRAPH_WORDS = WORDS_PER_LINE * MAX_PARAGRAPH_LINES
 const RECENT_YEARS = 5
-const MAX_SOURCES = 15
-const MIN_SOURCES = 6
+const MAX_SOURCES = 30
+const MIN_SOURCES = 15
+const RESULTS_PER_QUERY = 15
 
 const CITATION = /\[S\d+(?:\s*[,;–-]\s*S?\d+)*\]/g
 
@@ -36,6 +37,7 @@ const ROLE_GUIDE: Record<Role, string> = {
 const SYSTEM = `Você é um pesquisador sênior da área da saúde que escreve introduções de projetos e artigos originais com rigor acadêmico, em português do Brasil.
 Regras que você nunca quebra:
 - Toda afirmação científica precisa de citação, e você só pode citar as fontes fornecidas, usando os marcadores [S1], [S2] etc. Nunca invente fontes, autores, dados ou números.
+- Cada fonte só pode ser citada uma única vez em todo o texto. Nunca repita uma referência.
 - Números e achados só podem vir dos resumos fornecidos, sempre com a citação da fonte correspondente.
 - Sem plágio: escreva com suas próprias palavras, sintetizando e comparando as fontes. Nunca traduza nem copie frases dos resumos.`
 
@@ -83,8 +85,16 @@ function checkRules(text: string, sourceCount: number): string[] {
       }
     }
   })
+  const timesCited = new Map<number, number>()
   for (const marker of text.match(CITATION) ?? []) {
-    if (citedIds(marker).some((n) => n < 1 || n > sourceCount)) issues.push(`A citação ${marker} não corresponde a nenhuma fonte.`)
+    const ids = citedIds(marker)
+    if (ids.some((n) => n < 1 || n > sourceCount)) issues.push(`A citação ${marker} não corresponde a nenhuma fonte.`)
+    for (const id of new Set(ids)) timesCited.set(id, (timesCited.get(id) ?? 0) + 1)
+  }
+  for (const [id, times] of timesCited) {
+    if (times > 1) {
+      issues.push(`A fonte [S${id}] foi citada ${times} vezes; cada referência só pode aparecer uma vez no texto.`)
+    }
   }
   return issues
 }
@@ -98,6 +108,13 @@ function parseJson<T>(answer: string): T | null {
     return null
   }
 }
+
+const alreadyListed = (source: Source, existingRefs: string[]) =>
+  existingRefs.some(
+    (line) =>
+      (source.doi && line.toLowerCase().includes(source.doi.toLowerCase())) ||
+      normalize(line).includes(normalize(source.title).slice(0, 60)),
+  )
 
 async function findSources(context: string): Promise<Source[]> {
   const answer = await generate(
@@ -123,7 +140,7 @@ Responda apenas com um JSON: {"buscas": ["...", "...", "..."]}`,
   for (const minYear of [thisYear - RECENT_YEARS, thisYear - 2 * RECENT_YEARS]) {
     for (const query of valid) {
       if (ids.length >= MAX_SOURCES) break
-      for (const id of await searchIds(query, minYear, 10)) {
+      for (const id of await searchIds(query, minYear, RESULTS_PER_QUERY)) {
         if (!ids.includes(id) && ids.length < MAX_SOURCES) ids.push(id)
       }
     }
@@ -206,8 +223,8 @@ export async function POST(request: Request): Promise<Response> {
 
   let sources: Source[]
   try {
-    sources = await findSources(context)
-    console.log(`introducao: ${sources.length} fontes em ${elapsed()}`)
+    sources = (await findSources(context)).filter((s) => !alreadyListed(s, existingRefs))
+    console.log(`introducao: ${sources.length} fontes novas em ${elapsed()}`)
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('PubMed')) {
       console.error(error)
@@ -229,7 +246,8 @@ export async function POST(request: Request): Promise<Response> {
   const rules = `Regras obrigatórias de formato:
 - Coloque uma citação [S#] no máximo a cada ${MAX_LINES_WITHOUT_CITATION} linhas (cerca de ${MAX_GAP_WORDS} palavras): na prática, cite ao final de cada frase com conteúdo científico. Várias fontes juntas: [S1,S4].
 - Cada parágrafo deve ter no máximo ${MAX_PARAGRAPH_LINES} linhas (cerca de ${MAX_PARAGRAPH_WORDS} palavras). Separe os parágrafos com uma linha em branco.
-- Priorize as fontes mais recentes para descrever o estado da arte, e use o maior número possível de fontes diferentes.
+- Cada fonte pode ser citada uma única vez em todo o texto: nunca repita um mesmo [S#]. Há ${sources.length} fontes disponíveis; ajuste o tamanho do texto para não precisar repetir nenhuma.
+- Priorize as fontes mais recentes para descrever o estado da arte.
 - Português científico formal, impessoal, sem tópicos e sem títulos.`
 
   try {
@@ -261,7 +279,7 @@ Responda apenas com um JSON: {"texto": "introdução com os marcadores [S#]", "p
         await generate(
           'revisao',
           SYSTEM,
-          `O texto abaixo não cumpre todas as regras de formato. Corrija somente o necessário: divida parágrafos longos e acrescente citações das fontes disponíveis onde faltam. Não remova conteúdo citado e não invente nada.
+          `O texto abaixo não cumpre todas as regras de formato. Corrija somente o necessário: divida parágrafos longos, acrescente citações das fontes disponíveis onde faltam e, quando uma fonte estiver repetida, mantenha-a em um só lugar e troque as outras ocorrências por fontes ainda não citadas que sustentem a frase (se nenhuma sustentar, reescreva ou retire a frase). Não invente nada.
 
 Problemas encontrados:
 ${issues.map((i) => `- ${i}`).join('\n')}
