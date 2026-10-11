@@ -225,9 +225,8 @@ export const PB_FIELDS: Record<string, Field[]> = {
     {
       id: 'pb_cronograma',
       label: 'Cronograma',
-      rows: 6,
-      help: 'Cada etapa com mês de início e de fim, uma por linha. A coleta de dados só pode começar depois da aprovação do CEP.',
-      example: 'Submissão ao CEP: março/2027\nColeta de dados: maio a agosto/2027 (após aprovação)\nAnálise dos dados: setembro/2027\nRedação do artigo: outubro a novembro/2027',
+      schedule: true,
+      help: 'Igual ao formulário da Plataforma Brasil: identificação da etapa, data de início e data de término (DD/MM/AAAA). A coleta de dados só pode começar depois da aprovação do CEP.',
     },
     {
       id: 'pb_orcamento',

@@ -1,5 +1,6 @@
 import { PROPRIO } from '../data/plataformaBrasil'
 import type { StudyType, Values } from '../data/types'
+import { formatSchedule, parseSchedule } from './cronograma'
 import { blockHtml, escapeHtml, wrapHtmlDocument, type Block, type Section } from './manuscript'
 
 const get = (v: Values, id: string) => (v[id] ?? '').trim()
@@ -96,6 +97,13 @@ function blocks(v: Values, items: [string | undefined, string][]): Block[] {
   return items.filter(([, id]) => get(v, id)).map(([heading, id]) => ({ heading, text: get(v, id) }))
 }
 
+function scheduleBlocks(v: Values): Block[] {
+  const rows = parseSchedule(get(v, 'pb_cronograma'))
+  if (rows.length === 0) return []
+  const table = [['Identificação da etapa', 'Início', 'Término'], ...rows.map((r) => [r.etapa, r.inicio, r.fim])]
+  return [{ text: formatSchedule(rows), table }]
+}
+
 function labeled(v: Values, items: [string, string][]): Block[] {
   return items.filter(([, id]) => get(v, id)).map(([label, id]) => ({ label, text: get(v, id) }))
 }
@@ -162,7 +170,7 @@ export function buildProject(type: StudyType | null, v: Values) {
     },
     { title: 'Aspectos éticos', blocks: etica },
     { title: 'Financiamento', blocks: financiamento ? [{ text: financiamento }] : [] },
-    { title: 'Cronograma', blocks: blocks(v, [[undefined, 'pb_cronograma']]) },
+    { title: 'Cronograma', blocks: scheduleBlocks(v) },
     { title: 'Orçamento', blocks: blocks(v, [[undefined, 'pb_orcamento']]) },
     { title: 'Referências', blocks: blocks(v, [[undefined, 'pb_bibliografia']]) },
   ].filter((s) => s.blocks.length > 0)

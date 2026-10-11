@@ -5,6 +5,8 @@ export interface Block {
   heading?: string
   label?: string
   text: string
+  /** Primeira linha é o cabeçalho. */
+  table?: string[][]
 }
 
 export interface Section {
@@ -111,6 +113,8 @@ h1 { font-size: 14pt; text-align: center; }
 h2 { font-size: 12pt; text-transform: uppercase; margin-top: 18pt; }
 h3 { font-size: 12pt; font-style: italic; }
 p { margin: 0 0 6pt; text-align: justify; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #000; padding: 3pt 6pt; text-align: left; vertical-align: top; }
 </style>
 </head>
 <body>
@@ -121,6 +125,12 @@ ${body}
 }
 
 export function blockHtml(b: Block): string {
+  if (b.table) {
+    const [head, ...body] = b.table
+    const row = (cells: string[], tag: 'th' | 'td') =>
+      `<tr>${cells.map((c) => `<${tag}>${escapeHtml(c)}</${tag}>`).join('')}</tr>`
+    return `<table>\n${row(head, 'th')}\n${body.map((r) => row(r, 'td')).join('\n')}\n</table>`
+  }
   return lines(b.text)
     .map((l, i) => `<p>${i === 0 && b.label ? `<b>${escapeHtml(b.label)}:</b> ` : ''}${escapeHtml(l)}</p>`)
     .join('\n')

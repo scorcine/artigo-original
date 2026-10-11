@@ -473,6 +473,70 @@ button.import {
   font-size: 0.88rem;
 }
 
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.schedule-table th {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 2px solid var(--border);
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.schedule-table td {
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.schedule-table th:nth-child(2),
+.schedule-table th:nth-child(3) {
+  width: 9.5rem;
+}
+
+.schedule-table input,
+.schedule-table textarea {
+  width: 100%;
+}
+
+.schedule-table textarea {
+  min-height: 0;
+  resize: none;
+  field-sizing: content;
+}
+
+.schedule-table.preview {
+  margin-bottom: 0.75rem;
+  background: var(--surface);
+}
+
+.schedule-table.preview td:nth-child(2),
+.schedule-table.preview td:nth-child(3) {
+  white-space: nowrap;
+}
+
+.schedule-warnings {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  color: #8a5a00;
+  font-size: 0.88rem;
+}
+
+.schedule-ai {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  align-items: center;
+  margin-top: 0.9rem;
+}
+
+.schedule-ai .calc-input {
+  max-width: 260px;
+}
+
 .calc-suggest {
   margin-bottom: 0.5rem;
 }

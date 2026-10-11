@@ -1,5 +1,6 @@
 import { STEPS, visibleFields } from '../data/steps'
 import type { StudyType, Values } from '../data/types'
+import type { ProposedStage } from './cronograma'
 
 export interface TitleSuggestion {
   titulo: string
@@ -107,6 +108,15 @@ export function suggestSampleParameters(request: {
   existingRefs: string[]
 }): Promise<SampleParameters> {
   return post<SampleParameters>('/api/parametros', request, 'Não foi possível buscar os valores na literatura agora.')
+}
+
+export interface ProposedSchedule {
+  etapas: ProposedStage[]
+  pendencias: string[]
+}
+
+export function suggestSchedule(request: { studyType?: string; context: string }): Promise<ProposedSchedule> {
+  return post<ProposedSchedule>('/api/cronograma', request, 'Não foi possível montar o cronograma agora.')
 }
 
 const MAX_CONTEXT_FIELD = 1500

@@ -8,6 +8,7 @@ import { emptyDraft, loadDraft, saveDraft, type Draft } from './lib/storage'
 import { draftIntroduction, draftText, reviewText, studyContext, suggestTitles, type TitleSuggestion } from './lib/ia'
 import { hasNewVersion } from './lib/updates'
 import { SampleSizeCalculator } from './SampleSize'
+import { ScheduleTable } from './Schedule'
 
 const UPDATE_CHECK_MS = 2 * 60 * 1000
 
@@ -316,6 +317,8 @@ function FieldInput({
         </div>
       ) : field.kind === 'text' ? (
         <input id={inputId} type="text" value={value} onChange={(e) => onChange(field.id, e.target.value)} />
+      ) : field.schedule ? (
+        <ScheduleTable field={field} values={values} type={type} onChange={onChange} />
       ) : (
         <>
           <textarea id={inputId} rows={field.rows ?? 4} value={value} onChange={(e) => onChange(field.id, e.target.value)} />
