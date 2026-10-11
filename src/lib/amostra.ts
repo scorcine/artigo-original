@@ -152,6 +152,7 @@ export function computeSample(i: SampleInput): SampleResult | string {
 
 const num = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
 const percent = (v: number) => `${num(v)}%`
+const int = (v: number) => v.toLocaleString('pt-BR')
 
 /** Parágrafo pronto para o projeto/artigo, com os valores usados e o resultado. */
 export function describeSample(i: SampleInput, r: SampleResult, basis: string): string {
@@ -159,8 +160,8 @@ export function describeSample(i: SampleInput, r: SampleResult, basis: string): 
   const allocation = i.ratio === 1 ? 'alocação 1:1' : `razão de alocação 1:${num(i.ratio)}`
   const lossText = (n: number, final: number) =>
     i.losses > 0
-      ? `Acrescentando ${percent(i.losses)} para possíveis perdas e recusas, a amostra final será de ${final}`
-      : `A amostra final será de ${n}`
+      ? `Acrescentando ${percent(i.losses)} para possíveis perdas e recusas, a amostra final será de ${int(final)}`
+      : `A amostra final será de ${int(n)}`
 
   let text: string
   if (i.kind === 'duas-proporcoes' || i.kind === 'duas-medias') {
@@ -169,19 +170,19 @@ export function describeSample(i: SampleInput, r: SampleResult, basis: string): 
       i.kind === 'duas-proporcoes'
         ? `para comparação de duas proporções independentes (método de Fleiss com correção de continuidade), considerando ${test}, ${allocation} e proporções esperadas do desfecho de ${percent(i.p1)} no grupo ${g1.label} e de ${percent(i.p2)} no grupo ${g2.label}`
         : `para comparação de duas médias independentes, considerando ${test}, ${allocation}, diferença mínima clinicamente relevante de ${num(i.meanDiff)}${i.unit ? ` ${i.unit}` : ''} entre os grupos e desvio padrão de ${num(i.sd)}${i.unit ? ` ${i.unit}` : ''}`
-    const perGroup = g1.n === g2.n ? `${g1.n} participantes por grupo` : `${g1.n} participantes no grupo ${g1.label} e ${g2.n} no grupo ${g2.label}`
+    const perGroup = g1.n === g2.n ? `${int(g1.n)} participantes por grupo` : `${int(g1.n)} participantes no grupo ${g1.label} e ${int(g2.n)} no grupo ${g2.label}`
     const finalGroups =
-      g1.final === g2.final ? `${g1.final} participantes por grupo` : `${g1.final} participantes no grupo ${g1.label} e ${g2.final} no grupo ${g2.label}`
+      g1.final === g2.final ? `${int(g1.final)} participantes por grupo` : `${int(g1.final)} participantes no grupo ${g1.label} e ${int(g2.final)} no grupo ${g2.label}`
     const closing =
       i.losses > 0
-        ? `Acrescentando ${percent(i.losses)} para possíveis perdas e recusas, a amostra final será de ${finalGroups}, totalizando ${r.totalFinal} participantes.`
+        ? `Acrescentando ${percent(i.losses)} para possíveis perdas e recusas, a amostra final será de ${finalGroups}, totalizando ${int(r.totalFinal)} participantes.`
         : ''
-    text = `O tamanho amostral foi calculado ${method}. O cálculo indicou a necessidade de ${perGroup} (${r.total} no total).${closing ? ` ${closing}` : ''}`
+    text = `O tamanho amostral foi calculado ${method}. O cálculo indicou a necessidade de ${perGroup} (${int(r.total)} no total).${closing ? ` ${closing}` : ''}`
   } else if (i.kind === 'prevalencia') {
     const finite = valid(i.population) && i.population > 0 ? `, com correção para população finita de ${i.population.toLocaleString('pt-BR')} indivíduos` : ''
-    text = `O tamanho amostral foi calculado para estimar uma proporção, considerando prevalência esperada de ${percent(i.p)}, nível de confiança de ${percent(i.confidence)} e precisão absoluta de ${num(i.precision)} pontos percentuais${finite}. O cálculo indicou a necessidade de ${r.total} participantes. ${lossText(r.total, r.totalFinal)} participantes.`
+    text = `O tamanho amostral foi calculado para estimar uma proporção, considerando prevalência esperada de ${percent(i.p)}, nível de confiança de ${percent(i.confidence)} e precisão absoluta de ${num(i.precision)} pontos percentuais${finite}. O cálculo indicou a necessidade de ${int(r.total)} participantes. ${lossText(r.total, r.totalFinal)} participantes.`
   } else {
-    text = `O tamanho amostral foi calculado pelo método de Buderer para estudos de acurácia diagnóstica, considerando sensibilidade esperada de ${percent(i.sensitivity)}, especificidade esperada de ${percent(i.specificity)}, prevalência da condição de ${percent(i.prevalence)} na população estudada, nível de confiança de ${percent(i.confidence)} e precisão de ${num(i.precision)} pontos percentuais. O cálculo indicou a necessidade de ${r.total} participantes. ${lossText(r.total, r.totalFinal)} participantes.`
+    text = `O tamanho amostral foi calculado pelo método de Buderer para estudos de acurácia diagnóstica, considerando sensibilidade esperada de ${percent(i.sensitivity)}, especificidade esperada de ${percent(i.specificity)}, prevalência da condição de ${percent(i.prevalence)} na população estudada, nível de confiança de ${percent(i.confidence)} e precisão de ${num(i.precision)} pontos percentuais. O cálculo indicou a necessidade de ${int(r.total)} participantes. ${lossText(r.total, r.totalFinal)} participantes.`
   }
   return basis.trim() ? `${text} ${basis.trim()}` : text
 }

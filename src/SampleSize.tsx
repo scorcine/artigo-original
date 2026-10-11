@@ -253,12 +253,14 @@ export function SampleSizeCalculator({
         <div className="calc-result">
           {result.groups.length > 1 ? (
             <p>
-              <strong>{result.groups.map((g) => `${g.final} no grupo ${g.label}`).join(' e ')}</strong> — total de{' '}
-              <strong>{result.totalFinal} participantes</strong> (mínimo de {result.total} antes das perdas).
+              <strong>{result.groups.map((g) => `${g.final.toLocaleString('pt-BR')} no grupo ${g.label}`).join(' e ')}</strong>{' '}
+              — total de <strong>{result.totalFinal.toLocaleString('pt-BR')} participantes</strong> (mínimo de{' '}
+              {result.total.toLocaleString('pt-BR')} antes das perdas).
             </p>
           ) : (
             <p>
-              <strong>{result.totalFinal} participantes</strong> (mínimo de {result.total} antes das perdas).
+              <strong>{result.totalFinal.toLocaleString('pt-BR')} participantes</strong> (mínimo de{' '}
+              {result.total.toLocaleString('pt-BR')} antes das perdas).
             </p>
           )}
           <div className="text-review-actions">
