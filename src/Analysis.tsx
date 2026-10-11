@@ -1,7 +1,14 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { STEPS, visibleFields } from './data/steps'
 import type { Phase, StudyType, Values } from './data/types'
-import { analyzeProject, type Analysis } from './lib/ia'
+import {
+  analyzeQuality,
+  checkPlagiarism,
+  type PlagiarismCheck,
+  type ProjectText,
+  type QualityAnalysis,
+  type SimilarityLevel,
+} from './lib/ia'
 import { lines } from './lib/manuscript'
 
 /** Campos que não são texto corrido: dados de contato, listas de referências, tabelas e valores. */
@@ -19,17 +26,6 @@ const SKIP = new Set([
 ])
 
 const MIN_TEXT_FIELD = 30
-
-const LEVELS: Record<Analysis['similaridade']['nivel'], { label: string; text: string }> = {
-  baixo: { label: 'Baixo', text: 'Poucos ou nenhum trecho muito parecido com os artigos citados.' },
-  moderado: { label: 'Moderado', text: 'Há trechos parecidos demais com os artigos citados: reescreva os apontados abaixo.' },
-  alto: { label: 'Alto', text: 'Boa parte do texto segue de perto os artigos citados: reescreva os trechos antes de submeter.' },
-  indisponivel: {
-    label: 'Não verificado',
-    text: 'Nenhuma referência com DOI foi encontrada no PubMed para comparar. Use referências com DOI ou um verificador externo.',
-  },
-  erro: { label: 'Não verificado', text: 'A comparação com os artigos falhou desta vez. Tente analisar de novo.' },
-}
 
 interface Part {
   id: string
@@ -50,39 +46,33 @@ function projectParts(phase: Phase, type: StudyType | null, values: Values): Par
   return parts
 }
 
-const scoreClass = (n: number) => (n >= 8 ? 'good' : n >= 6 ? 'fair' : 'poor')
-
-export function ProjectAnalysis({
-  phase,
-  type,
-  values,
-  onChange,
-}: {
+interface PanelProps {
   phase: Phase
   type: StudyType | null
   values: Values
   onChange: (id: string, value: string) => void
-}) {
-  const storeId = `analise_fase${phase}`
+}
+
+type Saved<T> = T & { data: string }
+
+function readSaved<T>(raw: string | undefined): Saved<T> | null {
+  try {
+    return raw ? (JSON.parse(raw) as Saved<T>) : null
+  } catch {
+    return null
+  }
+}
+
+/** Busca, guarda no rascunho e devolve o último resultado salvo. */
+function useSavedRun<T>(storeId: string, { phase, type, values, onChange }: PanelProps, call: (r: ProjectText) => Promise<T>) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const saved = values[storeId]
-  let analysis: (Analysis & { data: string }) | null = null
-  try {
-    analysis = saved ? JSON.parse(saved) : null
-  } catch {
-    analysis = null
-  }
-
   const parts = projectParts(phase, type, values)
-  const titles = new Map(parts.map((p) => [p.id, p.titulo]))
-  const what = phase === 1 ? 'projeto' : 'artigo'
-
   const run = async () => {
     setLoading(true)
     setError('')
     try {
-      const result = await analyzeProject({
+      const result = await call({
         fase: phase,
         studyType: type?.name,
         guideline: type?.guideline,
@@ -91,77 +81,122 @@ export function ProjectAnalysis({
       })
       onChange(storeId, JSON.stringify({ ...result, data: new Date().toLocaleString('pt-BR') }))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Não foi possível analisar agora.')
+      setError(e instanceof Error ? e.message : 'Não foi possível concluir agora.')
     } finally {
       setLoading(false)
     }
   }
+  return { loading, error, parts, run, saved: readSaved<T>(values[storeId]) }
+}
 
-  const fix = (campo: string, from: string, to: string) => {
-    const current = values[campo] ?? ''
-    if (current.includes(from)) onChange(campo, current.replace(from, to))
+/** Botão que troca o trecho pela sugestão no campo, ou desfaz a troca. */
+function FixButton({
+  values,
+  onChange,
+  campo,
+  trecho,
+  sugestao,
+}: {
+  values: Values
+  onChange: (id: string, value: string) => void
+  campo: string
+  trecho: string
+  sugestao: string
+}) {
+  const current = values[campo] ?? ''
+  if (!sugestao) return null
+  if (current.includes(trecho)) {
+    return (
+      <button type="button" onClick={() => onChange(campo, current.replace(trecho, sugestao))}>
+        Aplicar no texto
+      </button>
+    )
   }
-
-  const fixButton = ({ campo, trecho, sugestao }: { campo: string; trecho: string; sugestao: string }) => {
-    const current = values[campo] ?? ''
-    if (current.includes(trecho)) {
-      return (
-        <button type="button" onClick={() => fix(campo, trecho, sugestao)}>
-          Aplicar no texto
+  if (current.includes(sugestao)) {
+    return (
+      <span className="analysis-applied">
+        Aplicada.{' '}
+        <button type="button" className="link" onClick={() => onChange(campo, current.replace(sugestao, trecho))}>
+          Desfazer
         </button>
-      )
-    }
-    if (current.includes(sugestao)) {
-      return (
-        <span className="analysis-applied">
-          Aplicada.{' '}
-          <button type="button" className="link" onClick={() => fix(campo, sugestao, trecho)}>
-            Desfazer
-          </button>
-        </span>
-      )
-    }
-    return <span className="help">O trecho já foi alterado no texto.</span>
+      </span>
+    )
   }
+  return <span className="help">O trecho já foi alterado no texto.</span>
+}
+
+function PanelHeader({
+  title,
+  description,
+  what,
+  label,
+  loading,
+  error,
+  savedAt,
+  disabled,
+  loadingText,
+  onRun,
+}: {
+  title: string
+  description: ReactNode
+  what: string
+  label: string
+  loading: boolean
+  error: string
+  savedAt?: string
+  disabled: boolean
+  loadingText: string
+  onRun: () => void
+}) {
+  return (
+    <>
+      <h3>{title}</h3>
+      <p className="help">{description}</p>
+      <div className="text-review-actions">
+        <button type="button" className="suggest strong" onClick={onRun} disabled={loading || disabled}>
+          {loading ? 'Analisando…' : savedAt ? 'Analisar de novo' : label}
+        </button>
+        {savedAt && !loading && <span className="help">Última análise: {savedAt}</span>}
+      </div>
+      {disabled && <p className="help">Preencha o {what} antes de pedir a análise.</p>}
+      {loading && <p className="help">{loadingText}</p>}
+      {error && <p className="suggest-error">{error}</p>}
+    </>
+  )
+}
+
+const scoreClass = (n: number) => (n >= 8 ? 'good' : n >= 6 ? 'fair' : 'poor')
+
+export function QualityPanel(props: PanelProps) {
+  const { phase, values, onChange } = props
+  const what = phase === 1 ? 'projeto' : 'artigo'
+  const { loading, error, parts, run, saved } = useSavedRun<QualityAnalysis>(`qualidade_fase${phase}`, props, analyzeQuality)
+  const titles = new Map(parts.map((p) => [p.id, p.titulo]))
 
   return (
     <section className="analysis">
-      <h3>Análise do {what} completo</h3>
-      <p className="help">
-        A IA lê todo o {what} e avalia a qualidade do texto, aponta correções e compara o texto com os resumos dos artigos
-        citados (buscados no PubMed pelo DOI) para encontrar trechos copiados, traduzidos ao pé da letra ou parafraseados de
-        perto. Leva de 1 a 2 minutos.
-      </p>
-      <div className="text-review-actions">
-        <button type="button" className="suggest strong" onClick={run} disabled={loading || parts.length === 0}>
-          {loading ? 'Analisando…' : analysis ? 'Analisar de novo' : `Analisar o ${what} completo`}
-        </button>
-        {analysis && !loading && <span className="help">Última análise: {analysis.data}</span>}
-      </div>
-      {parts.length === 0 && <p className="help">Preencha o {what} antes de pedir a análise.</p>}
-      {loading && <p className="help">Lendo o {what} e comparando com os artigos citados…</p>}
-      {error && <p className="suggest-error">{error}</p>}
-
-      {analysis && (
+      <PanelHeader
+        title="Análise da qualidade do texto"
+        description={`A IA lê todo o ${what}, dá uma nota de 0 a 10 para cada critério de qualidade e aponta correções que podem ser aplicadas direto no texto. Leva cerca de 1 minuto.`}
+        what={what}
+        label="Analisar a qualidade do texto"
+        loading={loading}
+        error={error}
+        savedAt={saved?.data}
+        disabled={parts.length === 0}
+        loadingText={`Lendo o ${what}…`}
+        onRun={run}
+      />
+      {saved && (
         <>
           <div className="analysis-summary">
-            <div className={`analysis-score ${scoreClass(analysis.qualidade.nota)}`}>
-              <span className="analysis-big">{analysis.qualidade.nota.toLocaleString('pt-BR')}</span>
-              <span>Qualidade do texto (0 a 10)</span>
-            </div>
-            <div className={`analysis-score level-${analysis.similaridade.nivel}`}>
-              <span className="analysis-big">{LEVELS[analysis.similaridade.nivel].label}</span>
-              <span>
-                Similaridade com os artigos citados
-                {analysis.similaridade.fontesComparadas > 0 &&
-                  ` (cerca de ${analysis.similaridade.percentual.toLocaleString('pt-BR')}% do texto)`}
-              </span>
+            <div className={`analysis-score ${scoreClass(saved.nota)}`}>
+              <span className="analysis-big">{saved.nota.toLocaleString('pt-BR')}</span>
+              <span>Nota geral (0 a 10)</span>
             </div>
           </div>
-
-          <h4>Qualidade do texto</h4>
           <ul className="analysis-criteria">
-            {analysis.qualidade.criterios.map((c) => (
+            {saved.criterios.map((c) => (
               <li key={c.nome}>
                 <span className={`analysis-pill ${scoreClass(c.nota)}`}>{c.nota.toLocaleString('pt-BR')}</span>
                 <span>
@@ -170,20 +205,19 @@ export function ProjectAnalysis({
               </li>
             ))}
           </ul>
-          {analysis.qualidade.pontosFortes.length > 0 && (
+          {saved.pontosFortes.length > 0 && (
             <>
-              <p className="review-heading">Pontos fortes</p>
+              <h4>Pontos fortes</h4>
               <ul className="analysis-strengths">
-                {analysis.qualidade.pontosFortes.map((p) => (
+                {saved.pontosFortes.map((p) => (
                   <li key={p}>{p}</li>
                 ))}
               </ul>
             </>
           )}
-
-          <h4>Correções sugeridas ({analysis.qualidade.correcoes.length})</h4>
-          {analysis.qualidade.correcoes.length === 0 && <p className="help">Nenhuma correção importante encontrada.</p>}
-          {analysis.qualidade.correcoes.map((c, i) => (
+          <h4>Correções sugeridas ({saved.correcoes.length})</h4>
+          {saved.correcoes.length === 0 && <p className="help">Nenhuma correção importante encontrada.</p>}
+          {saved.correcoes.map((c, i) => (
             <div key={i} className="analysis-item">
               <p className="analysis-where">{titles.get(c.campo) ?? c.campo}</p>
               <p>
@@ -191,29 +225,137 @@ export function ProjectAnalysis({
               </p>
               <p className="analysis-old">{c.trecho}</p>
               <p className="analysis-new">{c.sugestao}</p>
-              {fixButton(c)}
+              <FixButton values={values} onChange={onChange} {...c} />
             </div>
           ))}
+        </>
+      )}
+    </section>
+  )
+}
 
-          <h4>Similaridade e plágio</h4>
-          <p className="help">
-            {LEVELS[analysis.similaridade.nivel].text} Foram comparados {analysis.similaridade.fontesComparadas} de{' '}
-            {analysis.similaridade.referencias} referências.
-          </p>
-          {analysis.similaridade.trechos.map((t, i) => (
-            <div key={i} className="analysis-item">
-              <p className="analysis-where">
-                {titles.get(t.campo) ?? t.campo} · {t.tipo}
-              </p>
-              <p className="analysis-old">{t.trecho}</p>
-              {t.fonte && <p className="help">Parecido com: {t.fonte}</p>}
-              <p className="analysis-new">{t.sugestao}</p>
-              {fixButton(t)}
-            </div>
-          ))}
+const LEVEL_LABELS: Record<SimilarityLevel, string> = { baixo: 'Baixa', moderado: 'Moderada', alto: 'Alta' }
+
+const LEVEL_TEXT: Record<SimilarityLevel, string> = {
+  baixo: 'Poucos ou nenhum trecho parecido demais.',
+  moderado: 'Há trechos parecidos demais: reescreva os apontados abaixo.',
+  alto: 'Boa parte do texto segue de perto outras fontes: reescreva os trechos antes de submeter.',
+}
+
+function LevelCard({ title, level, percent, note }: { title: string; level?: SimilarityLevel; percent?: number; note: string }) {
+  return (
+    <div className={`analysis-score ${level ? `level-${level}` : ''}`}>
+      <span className="analysis-big">{level ? LEVEL_LABELS[level] : 'Não verificado'}</span>
+      <span>
+        {title}
+        {level && percent !== undefined && ` (cerca de ${percent.toLocaleString('pt-BR')}% do texto)`}
+      </span>
+      <span className="help">{note}</span>
+    </div>
+  )
+}
+
+export function PlagiarismPanel(props: PanelProps) {
+  const { phase, values, onChange } = props
+  const what = phase === 1 ? 'projeto' : 'artigo'
+  const { loading, error, parts, run, saved } = useSavedRun<PlagiarismCheck>(`plagio_fase${phase}`, props, checkPlagiarism)
+  const titles = new Map(parts.map((p) => [p.id, p.titulo]))
+  const web = saved?.internet
+  const cited = saved?.citadas
+
+  return (
+    <section className="analysis">
+      <PanelHeader
+        title="Verificação de plágio"
+        description={
+          <>
+            Duas verificações: <strong>na internet</strong> (a IA pesquisa no Google frases do texto e o site confere se elas
+            aparecem nas páginas encontradas) e <strong>nos artigos citados</strong> (compara com os resumos do PubMed, inclusive
+            traduções ao pé da letra). Leva de 1 a 2 minutos.
+          </>
+        }
+        what={what}
+        label="Verificar plágio"
+        loading={loading}
+        error={error}
+        savedAt={saved?.data}
+        disabled={parts.length === 0}
+        loadingText="Pesquisando na internet e comparando com os artigos citados…"
+        onRun={run}
+      />
+      {saved && web && cited && (
+        <>
+          <div className="analysis-summary">
+            <LevelCard
+              title="Semelhança com a internet"
+              level={web.status === 'ok' ? web.nivel : undefined}
+              percent={web.status === 'ok' ? web.percentual : undefined}
+              note={
+                web.status === 'ok'
+                  ? `${web.frasesPesquisadas} frases pesquisadas, ${web.paginasVerificadas} páginas conferidas.`
+                  : web.status === 'erro'
+                    ? 'A pesquisa na internet falhou desta vez. Tente de novo.'
+                    : 'Disponível só com a IA do Google (Gemini).'
+              }
+            />
+            <LevelCard
+              title="Semelhança com os artigos citados"
+              level={cited.status === 'ok' ? cited.nivel : undefined}
+              percent={cited.status === 'ok' ? cited.percentual : undefined}
+              note={
+                cited.status === 'ok'
+                  ? `${cited.fontesComparadas} de ${cited.referencias} referências comparadas.`
+                  : cited.status === 'erro'
+                    ? 'A comparação falhou desta vez. Tente de novo.'
+                    : 'Nenhuma referência com DOI encontrada no PubMed.'
+              }
+            />
+          </div>
+
+          <h4>Trechos encontrados na internet</h4>
+          {web.status === 'ok' && (
+            <>
+              <p className="help">{LEVEL_TEXT[web.nivel]}</p>
+              {web.trechos.map((t, i) => (
+                <div key={i} className="analysis-item">
+                  <p className="analysis-where">
+                    {titles.get(t.campo) ?? t.campo} · {t.semelhanca}% igual
+                  </p>
+                  <p className="analysis-old">{t.trecho}</p>
+                  <p className="help">
+                    Encontrado em:{' '}
+                    <a href={t.url} target="_blank" rel="noreferrer">
+                      {t.titulo || t.url}
+                    </a>
+                  </p>
+                  {t.sugestao && <p className="analysis-new">{t.sugestao}</p>}
+                  <FixButton values={values} onChange={onChange} {...t} />
+                </div>
+              ))}
+            </>
+          )}
+
+          <h4>Trechos parecidos com os artigos citados</h4>
+          {cited.status === 'ok' && (
+            <>
+              <p className="help">{LEVEL_TEXT[cited.nivel]}</p>
+              {cited.trechos.map((t, i) => (
+                <div key={i} className="analysis-item">
+                  <p className="analysis-where">
+                    {titles.get(t.campo) ?? t.campo} · {t.tipo}
+                  </p>
+                  <p className="analysis-old">{t.trecho}</p>
+                  {t.fonte && <p className="help">Parecido com: {t.fonte}</p>}
+                  <p className="analysis-new">{t.sugestao}</p>
+                  <FixButton values={values} onChange={onChange} {...t} />
+                </div>
+              ))}
+            </>
+          )}
+
           <div className="notice warning">
-            Esta verificação compara o texto apenas com os resumos dos artigos citados. Para comparar com a internet, faça
-            também a verificação no CopySpider, logo abaixo.
+            A pesquisa na internet confere uma amostra de frases e só lê páginas abertas (não lê PDFs nem bases fechadas). Para
+            a verificação completa, use também o CopySpider, logo abaixo.
           </div>
         </>
       )}
@@ -258,7 +400,7 @@ function CopySpider({
 
   return (
     <div className="copyspider">
-      <h4>Verificação na internet com o CopySpider</h4>
+      <h4>Verificação completa com o CopySpider</h4>
       <p className="help">
         O CopySpider é um programa gratuito, instalado no computador, que compara o texto com documentos da
         internet. Ele não pode ser aberto dentro do site, mas o arquivo para ele sai daqui, e o resultado fica registrado aqui.
@@ -283,7 +425,7 @@ function CopySpider({
         </li>
         <li>
           Ao terminar, abra o relatório. Trechos marcados que sejam citações com referência estão corretos; reescreva os que
-          forem cópia sem citação (a análise acima ajuda a reescrever).
+          forem cópia sem citação.
         </li>
         <li>Registre o resultado:</li>
       </ol>

@@ -130,38 +130,52 @@ export interface Correction {
   sugestao: string
 }
 
-export interface SimilarPassage {
-  campo: string
-  trecho: string
-  fonte: string
-  tipo: string
-  sugestao: string
+export interface QualityAnalysis {
+  nota: number
+  criterios: { nome: string; nota: number; comentario: string }[]
+  pontosFortes: string[]
+  correcoes: Correction[]
 }
 
-export interface Analysis {
-  qualidade: {
-    nota: number
-    criterios: { nome: string; nota: number; comentario: string }[]
-    pontosFortes: string[]
-    correcoes: Correction[]
-  }
-  similaridade: {
-    nivel: 'baixo' | 'moderado' | 'alto' | 'indisponivel' | 'erro'
-    percentual: number
-    fontesComparadas: number
-    referencias: number
-    trechos: SimilarPassage[]
-  }
+export type SimilarityLevel = 'baixo' | 'moderado' | 'alto'
+
+export interface PlagiarismCheck {
+  internet:
+    | { status: 'indisponivel' | 'erro' }
+    | {
+        status: 'ok'
+        frasesPesquisadas: number
+        paginasVerificadas: number
+        percentual: number
+        nivel: SimilarityLevel
+        trechos: { campo: string; trecho: string; sugestao: string; url: string; titulo: string; semelhanca: number }[]
+      }
+  citadas:
+    | { status: 'indisponivel' | 'erro'; referencias: number }
+    | {
+        status: 'ok'
+        fontesComparadas: number
+        referencias: number
+        percentual: number
+        nivel: SimilarityLevel
+        trechos: { campo: string; trecho: string; sugestao: string; fonte: string; tipo: string }[]
+      }
 }
 
-export function analyzeProject(request: {
+export interface ProjectText {
   fase: 1 | 2
   studyType?: string
   guideline?: string
   partes: { id: string; titulo: string; texto: string }[]
   referencias: string[]
-}): Promise<Analysis> {
-  return post<Analysis>('/api/analise', request, 'Não foi possível analisar o projeto agora.')
+}
+
+export function analyzeQuality(request: ProjectText): Promise<QualityAnalysis> {
+  return post<QualityAnalysis>('/api/qualidade', request, 'Não foi possível analisar a qualidade do texto agora.')
+}
+
+export function checkPlagiarism(request: ProjectText): Promise<PlagiarismCheck> {
+  return post<PlagiarismCheck>('/api/plagio', request, 'Não foi possível verificar o plágio agora.')
 }
 
 const MAX_CONTEXT_FIELD = 1500

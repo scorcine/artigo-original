@@ -15,13 +15,17 @@ const MODELS = {
   anthropic: { titulos: ['claude-haiku-4-5', 'claude-sonnet-4-6'], revisao: ['claude-sonnet-5-5', 'claude-sonnet-4-6'] },
 } as const
 
-function pickModels(task: Task) {
+function withOverrideFor(task: Task, ids: readonly string[]): readonly string[] {
   const override = task === 'titulos' ? process.env.TITULO_MODELO : process.env.REVISAO_MODELO
-  const withOverride = (ids: readonly string[]) => (override ? [override, ...ids.filter((id) => id !== override)] : ids)
+  return override ? [override, ...ids.filter((id) => id !== override)] : ids
+}
 
-  const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY
-  if (googleKey) {
-    const google = createGoogle({ apiKey: googleKey })
+function pickModels(task: Task) {
+  const withOverride = (ids: readonly string[]) => withOverrideFor(task, ids)
+
+  const key = googleKey()
+  if (key) {
+    const google = createGoogle({ apiKey: key })
     return withOverride(MODELS.google[task]).map((id) => google(id))
   }
   const anthropicKey = process.env.ANTHROPIC_API_KEY
@@ -72,17 +76,16 @@ function friendlyFailure(kind: FailureKind | undefined): AiFailure {
 const QUOTA_PAUSE_MS = 15 * 60 * 1000
 const exhaustedUntil = new Map<string, number>()
 
-/** Gera texto tentando os modelos em ordem; erros de chave não passam para o próximo modelo. */
-export async function generate(task: Task, system: string, prompt: string): Promise<string> {
-  const all = pickModels(task)
+type Model = ReturnType<typeof pickModels>[number]
+
+/** Tenta os modelos em ordem; erros de chave não passam para o próximo modelo. */
+async function withFallback<T>(all: Model[], call: (model: Model, maxRetries: number) => Promise<T>): Promise<T> {
   const available = all.filter((m) => (exhaustedUntil.get(m.modelId) ?? 0) < Date.now())
   const models = available.length > 0 ? available : all
   let lastKind: FailureKind | undefined
   for (const [i, model] of models.entries()) {
     try {
-      const isLast = i === models.length - 1
-      const { text } = await generateText({ model, system, prompt, maxRetries: isLast ? 2 : 0 })
-      return text
+      return await call(model, i === models.length - 1 ? 2 : 0)
     } catch (error) {
       lastKind = classify(error)
       console.error(`Falha no modelo ${model.modelId} (${lastKind})`, error)
@@ -91,6 +94,41 @@ export async function generate(task: Task, system: string, prompt: string): Prom
     }
   }
   throw friendlyFailure(lastKind)
+}
+
+export async function generate(task: Task, system: string, prompt: string): Promise<string> {
+  return withFallback(pickModels(task), async (model, maxRetries) => {
+    const { text } = await generateText({ model, system, prompt, maxRetries })
+    return text
+  })
+}
+
+const googleKey = () => process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY
+
+/** A busca na internet usa a Pesquisa Google do Gemini; com outros provedores ela não está disponível. */
+export const canSearchWeb = () => !!googleKey()
+
+export interface WebSource {
+  url: string
+  title: string
+}
+
+export async function searchWeb(system: string, prompt: string): Promise<{ text: string; sources: WebSource[] }> {
+  const google = createGoogle({ apiKey: googleKey() })
+  const models = withOverrideFor('revisao', MODELS.google.revisao).map((id) => google(id))
+  return withFallback(models, async (model, maxRetries) => {
+    const result = await generateText({
+      model,
+      system,
+      prompt,
+      maxRetries,
+      tools: { google_search: google.tools.googleSearch({}) },
+    })
+    const sources = result.sources
+      .filter((s) => s.sourceType === 'url')
+      .map((s) => ({ url: s.url, title: s.title ?? '' }))
+    return { text: result.text, sources }
+  })
 }
 
 export const NO_KEY_MESSAGE = 'Os recursos de IA ainda não estão ativados: falta configurar a chave da IA na Vercel.'
